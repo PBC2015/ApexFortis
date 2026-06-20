@@ -34,7 +34,7 @@ body{color:var(--t);font-family:var(--fb);-webkit-font-smoothing:antialiased}
 .logo{display:flex;align-items:center;gap:8px}
 .lmark{width:30px;height:30px;border:1.5px solid var(--g);border-radius:5px;background:var(--gdk);display:flex;align-items:center;justify-content:center;font-family:var(--fn);font-size:13px;font-weight:800;color:var(--g2);flex-shrink:0}
 .ltxt{font-family:var(--fn);font-size:17px;font-weight:800;letter-spacing:.1em;color:var(--g2)}
-.ltxt em{color:var(--t3);font-style:normal;font-weight:500}
+.ltxt em{color:var(--t2);font-style:normal;font-weight:500}
 .hdr-r{margin-left:auto;display:flex;align-items:center;gap:8px}
 /* MAIN + BOTTOM NAV */
 .main{flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
@@ -52,14 +52,14 @@ body{color:var(--t);font-family:var(--fb);-webkit-font-smoothing:antialiased}
 #splash{position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at 50% 38%,#0f2238 0%,#0c1828 68%);display:flex;align-items:center;justify-content:center;cursor:pointer;will-change:opacity,transform}
 #splash.spl-exit{transition:opacity .55s ease,transform .55s cubic-bezier(.4,0,.2,1);opacity:0;transform:scale(1.07)}
 .bnav{flex-shrink:0;background:var(--bg2);border-top:1.5px solid var(--b2);display:flex;padding-bottom:var(--sab)}
-.bni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 2px;cursor:pointer;color:var(--t3);min-height:52px;user-select:none;transition:color .15s}
+.bni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:7px 2px;cursor:pointer;color:var(--t2);min-height:52px;user-select:none;transition:color .15s}
 .bni.on{color:var(--g2)}.bni i{font-size:20px;line-height:1}.bni-ico{width:22px;height:22px;display:flex;align-items:center;justify-content:center}
 .bni span{font-family:var(--fn);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 /* TIMER BAR */
 .tbar{flex-shrink:0;background:var(--bg2);border-top:2px solid var(--g);display:none;align-items:center;gap:10px;padding:8px 14px 10px}
 .tbar.vis{display:flex}
 .tbar-info{flex:1;min-width:0}
-.tbar-lbl{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t3);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbar-lbl{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t2);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tbar-prog{height:5px;background:var(--bg5);border-radius:3px;overflow:hidden}
 .tbar-fill{height:100%;background:linear-gradient(90deg,var(--gd),var(--g2));border-radius:3px;width:0%;transition:width .2s linear}
 .tbar-fill.done{background:var(--green)!important;width:100%!important}
@@ -90,7 +90,7 @@ body{color:var(--t);font-family:var(--fb);-webkit-font-smoothing:antialiased}
 /* INPUTS */
 input,select,textarea{background:var(--bg3);border:1px solid var(--b);color:var(--t);font-family:var(--fb);font-size:16px;border-radius:6px;padding:10px 12px;outline:none;-webkit-appearance:none;appearance:none;width:100%}
 input:focus,select:focus,textarea:focus{border-color:var(--g)}
-input::placeholder,textarea::placeholder{color:var(--t3)}
+input::placeholder,textarea::placeholder{color:var(--t2)}
 select option{background:var(--bg3)}
 .ins{padding:8px 10px;font-size:15px;border-radius:5px}
 textarea{resize:vertical;min-height:60px;font-size:14px}
@@ -133,7 +133,7 @@ input[type=date]{color-scheme:dark}
 .pill.dl.on{background:var(--gdk)!important;border-color:var(--g)!important;color:var(--g2)!important}
 /* SWIPE NAV */
 .swipe-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.swp-btn{display:flex;align-items:center;gap:4px;padding:8px 10px;min-height:40px;border-radius:6px;cursor:pointer;font-family:var(--fn);font-size:12px;font-weight:700;color:var(--t3);letter-spacing:.05em;text-transform:uppercase;user-select:none;min-width:72px}
+.swp-btn{display:flex;align-items:center;gap:4px;padding:8px 10px;min-height:40px;border-radius:6px;cursor:pointer;font-family:var(--fn);font-size:12px;font-weight:700;color:var(--t2);letter-spacing:.05em;text-transform:uppercase;user-select:none;min-width:72px}
 .swp-btn.l{justify-content:flex-start}.swp-btn.r{justify-content:flex-end}
 .swp-btn:active{background:var(--bg3)}
 .swp-cur{font-family:var(--fn);font-size:13px;font-weight:700;color:var(--g2);letter-spacing:.06em;text-transform:uppercase}
@@ -147,10 +147,10 @@ input[type=date]{color-scheme:dark}
 .exbh{padding:12px;background:var(--bg3);border-bottom:1px solid var(--b)}
 .exb.me .exbh{background:var(--bg4);border-bottom-color:var(--gd)}
 .exbn{font-family:var(--fn);font-size:18px;font-weight:800;letter-spacing:.03em}
-.exbr{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.09em;color:var(--t3);text-transform:uppercase}
+.exbr{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.09em;color:var(--t2);text-transform:uppercase}
 .exby{padding:12px;max-height:3000px;overflow:hidden;transition:max-height .38s cubic-bezier(.4,0,.2,1),padding .38s ease}
 .exby-collapsed{max-height:0!important;padding-top:0!important;padding-bottom:0!important}
-.collapse-btn{background:none;border:none;cursor:pointer;color:var(--t3);font-size:13px;padding:2px 4px;line-height:1;flex-shrink:0;align-self:flex-start}
+.collapse-btn{background:none;border:none;cursor:pointer;color:var(--t2);font-size:21px;padding:2px 4px;line-height:1;flex-shrink:0;align-self:flex-start}
 /* SET CARDS */
 .setc{background:var(--bg3);border:1px solid var(--b);border-radius:7px;padding:10px;margin-bottom:8px}
 .setc.topset{border:1.5px solid var(--g);background:rgba(74,56,16,.3);border-left:4px solid var(--g2)}
@@ -162,8 +162,7 @@ input[type=date]{color-scheme:dark}
 .snum{font-family:var(--fn);font-size:14px;font-weight:800;color:var(--gd);text-align:center;padding-bottom:8px}
 .sf{display:flex;flex-direction:column}
 .sf input,.sf select{min-height:40px}
-.ex-omenu{background:var(--bg3);border:1px solid var(--b);border-radius:6px;padding:4px;display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 2px;animation:fadeIn .15s ease}
-.sf label{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.07em;color:var(--t3);text-transform:uppercase;margin-bottom:3px}
+.sf label{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.07em;color:var(--t2);text-transform:uppercase;margin-bottom:3px}
 .sf input{text-align:center;padding:8px 4px;font-size:16px}
 .star-btn{height:36px;width:36px;padding:0;border-radius:5px;border:1.5px solid var(--b2);background:var(--bg5);color:var(--t2);font-size:20px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
 .star-btn:active{background:var(--bg4)}.star-btn.on{background:var(--gdk);border-color:var(--g);color:var(--g2)}
@@ -178,9 +177,9 @@ input[type=date]{color-scheme:dark}
 .tgt.dl{background:linear-gradient(135deg,rgba(20,14,4,.5),rgba(50,38,12,.3));border-color:var(--b2)}
 .tgt-icon{color:var(--g2);font-size:18px;flex-shrink:0}
 .tgt-body{flex:1;min-width:0}
-.tgt-t{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-bottom:2px}
+.tgt-t{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);margin-bottom:2px}
 .tgt-v{font-family:var(--fn);font-size:18px;font-weight:800;color:var(--g2)}
-.tgt-p{font-family:var(--fn);font-size:11px;color:var(--t3);margin-top:2px}
+.tgt-p{font-family:var(--fn);font-size:11px;color:var(--t2);margin-top:2px}
 .tgt-app{height:36px;padding:0 12px;border-radius:5px;border:1.5px solid var(--g);background:var(--gdk);color:var(--g2);font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0}
 .tgt-app.dl{border-color:var(--b2);background:var(--bg4);color:var(--t2)}
 /* DELOAD */
@@ -188,9 +187,9 @@ input[type=date]{color-scheme:dark}
 /* 1RM BADGE */
 .orm-bdg{font-family:var(--fn);font-size:12px;font-weight:700;color:var(--g);background:rgba(122,94,32,.2);border:1px solid var(--gdk);padding:2px 8px;border-radius:10px;white-space:nowrap}
 /* SWAP BTN */
-.sw-btn{height:28px;min-width:36px;padding:0 10px;border-radius:4px;border:1px solid var(--b2);background:var(--bg4);color:var(--t3);font-family:var(--fn);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px}
+.sw-btn{height:28px;min-width:36px;padding:0 10px;border-radius:4px;border:1px solid var(--b2);background:var(--bg4);color:var(--t2);font-family:var(--fn);font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px}
 .move-col{display:flex;flex-direction:column;gap:2px;margin-right:10px;flex-shrink:0}
-.move-btn{width:24px;height:18px;font-size:10px;line-height:1;padding:0;border-radius:3px;border:1px solid var(--b2);background:var(--bg4);color:var(--t3);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.move-btn{width:24px;height:18px;font-size:10px;line-height:1;padding:0;border-radius:3px;border:1px solid var(--b2);background:var(--bg4);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .move-btn:active{background:var(--bg5)}
 .sw-btn:active{background:var(--bg5)}.sw-btn.on{border-color:var(--g);color:var(--g2);background:var(--gdk)}
 /* CATEGORY SELECTOR */
@@ -203,7 +202,7 @@ input[type=date]{color-scheme:dark}
 .cat-cnt.ok{background:#0e2c1a;color:#60e890;border:1px solid #1a5030}
 .cat-cnt.warn{background:#2c2010;color:#e8a030;border:1px solid #503010}
 .cat-cnt.bad{background:#2c1010;color:#e06060;border:1px solid #501a1a}
-.cat-mini{height:28px;padding:0 10px;border-radius:4px;border:1px solid var(--b2);background:var(--bg3);color:var(--t3);font-family:var(--fn);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+.cat-mini{height:28px;padding:0 10px;border-radius:4px;border:1px solid var(--b2);background:var(--bg3);color:var(--t2);font-family:var(--fn);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
 .cat-mini:active{background:var(--bg5)}
 .cat-body{padding:4px 8px 8px}
 .cat-ex{display:flex;align-items:center;gap:8px;padding:8px 6px;border-bottom:1px solid var(--b);cursor:pointer;min-height:42px}
@@ -214,7 +213,7 @@ input[type=date]{color-scheme:dark}
 .sess-prev-row{display:flex;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--b);border-radius:6px;border-left:3px solid var(--gd)}
 .sess-prev-row.ruck{border-left-color:var(--g)}.sess-prev-row.short{border-left-color:var(--b2)}
 .sess-day{font-family:var(--fn);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--gd);min-width:52px;padding-top:2px}
-.sess-prev-row.ruck .sess-day{color:var(--g)}.sess-prev-row.short .sess-day{color:var(--t3)}
+.sess-prev-row.ruck .sess-day{color:var(--g)}.sess-prev-row.short .sess-day{color:var(--t2)}
 .sess-items{flex:1}
 .sess-title{font-family:var(--fn);font-size:14px;font-weight:800;color:var(--t);margin-bottom:3px}
 .sess-slots{display:flex;flex-wrap:wrap;gap:4px}
@@ -233,7 +232,7 @@ input[type=date]{color-scheme:dark}
 .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .stc{background:var(--bg3);border:1px solid var(--b);border-radius:7px;padding:12px;text-align:center}
 .stv{font-family:var(--fn);font-size:26px;font-weight:800;color:var(--g2);line-height:1}
-.stl{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--t3);text-transform:uppercase;margin-top:4px}
+.stl{font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--t2);text-transform:uppercase;margin-top:4px}
 .prog-bar{height:8px;background:var(--bg5);border-radius:4px;overflow:hidden;margin-top:6px}
 .prog-fill{height:100%;background:linear-gradient(90deg,var(--gd),var(--g2));border-radius:4px;transition:width .4s ease}
 /* CYCLE PREVIEW */
@@ -254,7 +253,7 @@ input[type=date]{color-scheme:dark}
 .wo-sess:active{background:var(--bg5)}.wo-sess.cur{border-color:var(--g)}
 .cklbl{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:6px;cursor:pointer;user-select:none;min-height:46px;border-bottom:1px solid var(--b)}
 .cklbl:active{background:var(--bg4)}
-.empty{text-align:center;padding:40px 16px;color:var(--t3)}
+.empty{text-align:center;padding:40px 16px;color:var(--t2)}
 .empty i{font-size:40px;display:block;margin-bottom:12px;color:var(--gdk)}
 .empty h3{font-family:var(--fn);font-size:17px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;color:var(--t2)}
 .empty p{font-size:13px;line-height:1.6}
@@ -279,7 +278,14 @@ input[type=date]{color-scheme:dark}
 .dot-miss{display:inline-block;width:7px;height:7px;border-radius:50%;background:#a04040}
 .scrollx{overflow-x:auto;-webkit-overflow-scrolling:touch}.scrollx::-webkit-scrollbar{display:none}
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px}
-.chart-empty{color:var(--t3);font-family:var(--fn);font-size:14px;text-align:center;padding:24px}
+.chart-empty{color:var(--t2);font-family:var(--fn);font-size:14px;text-align:center;padding:24px}
+.cyov-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.cyov-week{min-width:0}
+.cyov-weeklbl{font-family:var(--fn);font-size:13px;font-weight:800;color:var(--g2);letter-spacing:.04em;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--b2)}
+.cyov-day{margin-bottom:7px;cursor:pointer;padding:2px;border-radius:4px}
+.cyov-day:active{background:var(--bg4)}
+.cyov-daylbl{font-family:var(--fn);font-size:9px;font-weight:700;color:var(--t2);letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px}
+.cyov-ex{font-family:var(--fn);font-size:10.5px;color:var(--t);line-height:1.5;word-break:break-word}
 /* COMPARISON PANEL */
 .cmp-panel{background:var(--bg3);border:1px solid var(--b2);border-left:3px solid var(--g);border-radius:6px;padding:10px 12px;margin-bottom:14px}
 .cmp-hdr{font-family:var(--fn);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--g);margin-bottom:8px;display:flex;align-items:center;gap:6px}
@@ -289,11 +295,11 @@ input[type=date]{color-scheme:dark}
 .cmp-val{font-family:var(--fn);font-size:13px;color:var(--t);flex:1}
 .cmp-val strong{color:var(--g2)}
 /* HOME GYM */
-.home-btn{height:32px;width:32px;padding:0;border-radius:4px;border:1px solid var(--b2);background:var(--bg4);color:var(--t3);font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.home-btn{height:32px;width:32px;padding:0;border-radius:4px;border:1px solid var(--b2);background:var(--bg4);color:var(--t2);font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
 .home-btn:active{background:var(--bg5)}.home-btn.on{background:rgba(20,50,30,.5);border-color:#4a9a6a;color:#6dcc8a}
 .hg-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 7px;border-radius:10px;font-size:11px;font-family:var(--fn);font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:rgba(20,50,30,.4);color:#6dcc8a;border:1px solid #4a9a6a}
 /* RECOMMENDATIONS */
-.rec-note{font-size:11px;color:var(--t3);font-family:var(--fn);letter-spacing:.04em;padding:4px 12px 2px;display:flex;align-items:center;gap:6px}
+.rec-note{font-size:11px;color:var(--t2);font-family:var(--fn);letter-spacing:.04em;padding:4px 12px 2px;display:flex;align-items:center;gap:6px}
 .rec-note i{color:var(--gd);font-size:12px}
 </style>
 </head>
@@ -304,7 +310,7 @@ input[type=date]{color-scheme:dark}
 const SK='ss_v9';
 let TM={on:false,end:0,dur:0,lbl:'',iv:null};
 let SX=0,SY=0,editExId=null;
-let CO={me:true,push:true,grip:true,func:true,ant:true,post:true,legs:true,neck:true,core:true};
+let CO={me:false,push:false,func:false,back_bi:false,chest_tri:false,delts:false,legs:false,neck:false,grip:false,core:false};
 let showCompare=false;
 
 function load(){
@@ -317,7 +323,7 @@ function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
 function def(){return{
   tab:'lib',trainDays:3,hasRuck:true,cw:4,
   lib:[],cycles:[],cid:null,wk:0,dy:0,
-  prs:[],sel:[],stEx:null,stTab:'over',stRex:null,
+  prs:[],sel:[],stEx:null,stTab:'over',
   name:'',bw:'',unit:'kg',defRest:60,libSearch:'',
   deloadWeeks:{},homeGymDays:[],ruckUnit:'mi'
 };}
@@ -385,7 +391,7 @@ let S=load();
   });
   // Default ME main exercises to WU mode
   (S.cycles||[]).forEach(c=>(c.sessions||[]).forEach(sess=>(sess.exercises||[]).forEach(ex=>{
-    if((ex.role==='main'||ex.role==='main_push')&&ex.focus==='Max Effort'&&!ex.wuMode){ex.wuMode=true;if(ex.topSetIdx==null)ex.topSetIdx=0;d=true;}
+    // (WU mode removed — no longer auto-enabled for ME exercises)
   })));
   const hasSetData=s=>s.weight||s.reps||s.rpe||s.notes||s.failed;
   (S.cycles||[]).forEach(c=>(c.sessions||[]).forEach(sess=>(sess.exercises||[]).forEach(ex=>{
@@ -414,7 +420,7 @@ function notify(m){
 function uw(){return S.unit||'kg';}
 function fmtS(s){return Math.floor(s/60)+':'+(s%60<10?'0':'')+s%60;}
 function metricLbl(m){return m==='metres'?'Metres':m==='seconds'?'Secs':m==='minutes'?'Mins':'Reps';}
-function metricBadge(m){if(!m||m==='reps')return'';return`<span class="bdg" style="background:var(--bg4);border:1px solid var(--b2);color:var(--t3);font-size:10px">${m==='metres'?'m':m==='seconds'?'s':m==='minutes'?'min':m}</span>`;}
+function metricBadge(m){if(!m||m==='reps')return'';return`<span class="bdg" style="background:var(--bg4);border:1px solid var(--b2);color:var(--t2);font-size:10px">${m==='metres'?'m':m==='seconds'?'s':m==='minutes'?'min':m}</span>`;}
 function sb(sk){const m={Push:'bpush',Pull:'bpull',Squat:'bsquat',Accessories:'bacc',Functional:'bfunc'};return`<span class="bdg ${m[sk]||'bacc'}">${sk}</span>`;}
 function cb(cat){
   const map={back_bi:['Back & Bi','bbackbi'],chest_tri:['Chest & Tri','bchesttri'],delts:['Delts','bdelts'],legs:['Legs','blegs'],neck:['Neck','bnek'],grip:['Grip','baccgrip'],core:['Core','bcore']};
@@ -457,9 +463,6 @@ function getBest1RM(libId){
   return best>0?best:null;
 }
 function effSets(ex){
-  if(ex.wuMode&&ex.topSetIdx!=null&&(ex.sets||[]).length>ex.topSetIdx){
-    return[ex.sets[ex.topSetIdx]].filter(Boolean);
-  }
   return ex.sets||[];
 }
 function allOrms(){
@@ -588,23 +591,23 @@ function getTgt(libId,cid,week,day){
     const exIsPPS=(ex.weightMode||'kg')==='pps';
     effSets(ex).filter(st=>parseFloat(st.weight)>0&&!st.failed).forEach(st=>{
       const kg=exIsPPS?parseFloat(st.weight)*40:parseFloat(st.weight);
-      hist.push({kg,reps:parseInt(st.reps)||0,rpe:parseFloat(st.rpe)||0});
+      hist.push({kg,reps:parseInt(st.reps)||0,rpe:parseFloat(st.rpe)||0,sets:st.sets||'',equipment:st.equipment||'',notes:st.notes||''});
     });
   }
   cyc.sessions.forEach(s=>{if(s.week===week&&s.day===day)return;(s.exercises||[]).filter(e=>e.libId===libId).forEach(ex=>extract(ex,s,cid));});
   if(cidxSib>0)siblings.slice(0,cidxSib).reverse().forEach(pc=>pc.sessions.forEach(s=>(s.exercises||[]).filter(e=>e.libId===libId).forEach(ex=>extract(ex,s,pc.id))));
   if(!hist.length)return null;
-  const best=hist.reduce((a,b)=>b.kg>a.kg?b:a,{kg:0,reps:0,rpe:0});
+  const best=hist.reduce((a,b)=>b.kg>a.kg?b:a,{kg:0,reps:0,rpe:0,sets:'',equipment:'',notes:''});
   if(!best.kg)return null;
   // Convert result back to display unit
   function toDisplay(kg){return isPPS?Math.round(kg/40*4)/4:Math.round(kg/2.5)*2.5;}
   const suffix=isPPS?' PPS':'';
   if(isDeload(cid,week)){
     const dlKg=best.kg*0.85;
-    return{kg:toDisplay(dlKg),reps:best.reps+2,pKg:toDisplay(best.kg),pReps:best.reps,pRpe:best.rpe,note:'deload 85%',isDeload:true,suffix};
+    return{kg:toDisplay(dlKg),reps:best.reps+2,pKg:toDisplay(best.kg),pReps:best.reps,pRpe:best.rpe,pSets:best.sets,pEquipment:best.equipment,pNotes:best.notes,note:'deload 85%',isDeload:true,suffix};
   }
   const adj=rpeJump(best.kg,best.reps,best.rpe);
-  return{kg:toDisplay(adj.kg),reps:adj.reps,pKg:toDisplay(best.kg),pReps:best.reps,pRpe:best.rpe,note:adj.note,isDeload:false,suffix};
+  return{kg:toDisplay(adj.kg),reps:adj.reps,pKg:toDisplay(best.kg),pReps:best.reps,pRpe:best.rpe,pSets:best.sets,pEquipment:best.equipment,pNotes:best.notes,note:adj.note,isDeload:false,suffix};
 }
 function applyTgt(cid,w,d,eid,kg,reps){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
@@ -616,19 +619,8 @@ function applyTgt(cid,w,d,eid,kg,reps){
 // ─── WORKING UP MODE ──────────────────────────────────────────────────────────
 function toggleFocus(cid,w,d,exId){
   const ex=gEx(cid,w,d,exId);if(!ex)return;
-  if(ex.focus==='Max Effort'){ex.focus='Dynamic';ex.wuMode=false;}
-  else{ex.focus='Max Effort';ex.wuMode=true;if(ex.topSetIdx==null)ex.topSetIdx=0;}
+  ex.focus=ex.focus==='Max Effort'?'Dynamic':'Max Effort';
   save();rv();
-}
-function toggleWUMode(cid,w,d,exId){
-  const ex=gEx(cid,w,d,exId);if(!ex)return;
-  ex.wuMode=!ex.wuMode;
-  if(ex.wuMode&&ex.topSetIdx==null)ex.topSetIdx=Math.max(0,ex.sets.length-1);
-  save();rv();
-}
-function setTopSet(cid,w,d,exId,si){
-  const ex=gEx(cid,w,d,exId);if(!ex)return;
-  ex.topSetIdx=(ex.topSetIdx===si)?null:si;save();rv();
 }
 
 // ─── SWAP OVERLAY ─────────────────────────────────────────────────────────────
@@ -653,8 +645,8 @@ function openSwap(cid,w,d,exId){
     ?opts.map(l=>{
         const groupKey=(l.focus||'')+'|'+(l.category||'');
         const divider=groupKey!==curGroup?(curGroup=groupKey,l.category
-          ?`<div class="lbl" style="padding:6px 12px 2px;margin-top:4px;color:var(--t3);font-size:10px">${cb(l.category)||fb(l.focus)}</div>`
-          :`<div class="lbl" style="padding:6px 12px 2px;margin-top:4px;color:var(--t3);font-size:10px">${fb(l.focus)}</div>`):'';
+          ?`<div class="lbl" style="padding:6px 12px 2px;margin-top:4px;color:var(--t2);font-size:10px">${cb(l.category)||fb(l.focus)}</div>`
+          :`<div class="lbl" style="padding:6px 12px 2px;margin-top:4px;color:var(--t2);font-size:10px">${fb(l.focus)}</div>`):'';
         return`${divider}<div class="sw-row ${l.id===ex.libId?'cur':''}" onclick="doSwap('${cid}',${w},${d},'${exId}','${l.id}')"><div class="sw-name">${l.name}${l.homeGym?`<span style="color:#6dcc8a;margin-left:6px;font-size:11px">⌂</span>`:''}</div></div>`;
       }).join('')
     :`<div class="chart-empty">No ${isHG?'home gym ':''}${ex.skill} exercises available${isHG?' — mark exercises ⌂ in Library':''}</div>`;
@@ -702,9 +694,8 @@ function showWeekOverview(){
       const sorted=[...s.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
       exList=sorted.map(e=>{
         const badge=e.skill==='Accessories'?cb(e.category):sb(e.skill);
-        const topSet=e.wuMode&&e.topSetIdx!=null?e.sets[e.topSetIdx]:null;
-        const logged=topSet&&topSet.weight?`<span style="color:var(--t3);font-size:11px;margin-left:4px">${topSet.weight}${wLabel(e)}×${topSet.reps||'?'}</span>`
-          :e.sets&&e.sets.some(x=>x.weight)?`<span style="color:var(--t3);font-size:11px;margin-left:4px">${e.sets.find(x=>x.weight).weight}${wLabel(e)}×${e.sets.find(x=>x.weight).reps||'?'}</span>`:'';
+        const loggedSet=(e.sets||[]).filter(x=>x.weight).sort((a,b)=>parseFloat(b.weight)-parseFloat(a.weight))[0];
+        const logged=loggedSet?`<span style="color:var(--t2);font-size:11px;margin-left:4px">${loggedSet.weight}${wLabel(e)}×${loggedSet.reps||'?'}</span>`:'';
         return`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:0.5px solid var(--b2)">
           <div style="flex:1;font-family:var(--fn);font-size:13px">${e.name}${logged}</div>
           <div style="flex-shrink:0">${badge}</div>
@@ -715,8 +706,8 @@ function showWeekOverview(){
       <div class="fbet mb6">
         <span class="bdg ${s.type==='ruck'?'bruck':s.type==='short'?'bde':'bme'}">${tl}</span>
         <div style="display:flex;align-items:center;gap:6px">
-          ${vsv?`<span style="font-family:var(--fn);font-size:11px;color:var(--t3)">${vsv}</span>`:''}
-          <span style="color:${s.done?'var(--green)':'var(--t3)'};font-size:18px">${s.done?'✓':'○'}</span>
+          ${vsv?`<span style="font-family:var(--fn);font-size:11px;color:var(--t2)">${vsv}</span>`:''}
+          <span style="color:${s.done?'var(--green)':'var(--t2)'};font-size:18px">${s.done?'✓':'○'}</span>
         </div>
       </div>
       ${exList}
@@ -965,9 +956,8 @@ function setWMode(cid,w,d,exId){
   save();rv();
 }
 function mkEx(e){
-  const isMain=e.role==='main'||e.role==='main_push';
   const metric=e.metric||'reps';
-  return{id:uid(),libId:e.id,name:e.name,skill:e.skill,focus:e.focus,role:e.role||'',category:e.category||'',metric,sets:[mkSet()],wuMode:isMain,topSetIdx:isMain?0:null,weightMode:'kg'};
+  return{id:uid(),libId:e.id,name:e.name,skill:e.skill,focus:e.focus,role:e.role||'',category:e.category||'',metric,sets:[mkSet()],weightMode:'kg'};
 }
 function autofill(cyc,prev){
   if(!prev)return;
@@ -979,8 +969,6 @@ function autofill(cyc,prev){
       ex.sets=pe.sets.map(st=>({...mkSet(),weight:st.weight||'',reps:st.reps||'',sets:st.sets||'',rest:st.rest||'',equipment:st.equipment||'',
         notes:[st.weight&&st.weight+uw(),st.reps&&'×'+st.reps+'r'].filter(Boolean).join(' ')
           ?'↑ '+[st.weight&&st.weight+uw(),st.reps&&'×'+st.reps+'r'].filter(Boolean).join(' '):''}));
-      ex.wuMode=pe.wuMode||false;
-      ex.topSetIdx=pe.topSetIdx!=null?pe.topSetIdx:null;
     });
     if(s.type==='ruck'&&ps.ruckData){
       const r=ps.ruckData;
@@ -1016,7 +1004,7 @@ function render(){
           ?`<button class="tba btns" onclick="showTPanel()" title="Rest Timer" style="font-size:18px">⏱</button>
              <button class="tba btns" onclick="showWeekOverview()" title="Week Overview" style="font-size:17px">⊞</button>`
           :S.name?`<div style="font-family:var(--fn);font-size:13px;font-weight:700;color:var(--t2)">${S.name.split(' ')[0]}</div>`:''}
-        ${cyc?`<div style="text-align:right"><div style="font-size:10px;color:var(--t3);letter-spacing:.07em;text-transform:uppercase;font-family:var(--fn)">${S.trainDays||3}T${S.hasRuck!==false?'+R':''}</div><div style="font-size:13px;font-weight:700;color:var(--g);font-family:var(--fn)">W${S.wk+1}D${S.dy+1}</div></div>`:''}
+        ${cyc?`<div style="text-align:right"><div style="font-size:10px;color:var(--t2);letter-spacing:.07em;text-transform:uppercase;font-family:var(--fn)">${S.trainDays||3}T${S.hasRuck!==false?'+R':''}</div><div style="font-size:13px;font-weight:700;color:var(--g);font-family:var(--fn)">W${S.wk+1}D${S.dy+1}</div></div>`:''}
       </div>
     </div>
     <div class="main view" id="mc"></div>
@@ -1322,7 +1310,7 @@ function vCyc(c){
   </div>
   <div class="card">
     <div class="sect">Home Gym Days</div>
-    <div style="font-size:13px;color:var(--t3);margin-bottom:10px;line-height:1.5">
+    <div style="font-size:13px;color:var(--t2);margin-bottom:10px;line-height:1.5">
       Toggle which sessions use your home gym. Only exercises marked ⌂ in the library will be used on those days. ${hgCount?`(${hgCount} exercises marked)`:'<span style="color:var(--red)">No exercises marked yet — tap ⌂ in Library</span>'}
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -1336,7 +1324,7 @@ function vCyc(c){
     <div class="tgg mb10">
       ${[1,2,3,4].map(n=>`<button class="tgo ${(S.cw||4)===n?'on':''}" onclick="setCW(${n})">${n}W</button>`).join('')}
     </div>
-    <div style="font-size:12px;color:var(--t3);font-family:var(--fn);letter-spacing:.04em">${(td+(hr?1:0))*(S.cw||4)} total sessions · ${S.cw||4} week variation${(S.cw||4)>1?'s':''}</div>
+    <div style="font-size:12px;color:var(--t2);font-family:var(--fn);letter-spacing:.04em">${(td+(hr?1:0))*(S.cw||4)} total sessions · ${S.cw||4} week variation${(S.cw||4)>1?'s':''}</div>
     <div class="lbl mt12 mb4">Cycle Name (optional)</div>
     <input id="cycname" class="ins" placeholder="e.g. Strength Block 1…" value="${S._pName||''}">
   </div>
@@ -1366,7 +1354,7 @@ function vCyc(c){
     <button class="btnp" style="width:100%;margin-top:4px" onclick="bldCyc()">■ Generate ${S.cw||4}-Week Cycle</button>
     <div class="prev-tog" onclick="togglePrev()">
       <span>■Preview Plan</span>
-      <span id="prev-icon">▾</span>
+      <span id="prev-icon" style="font-size:21px;display:inline-block">▾</span>
     </div>
     <div id="prev-body" style="display:none;padding-top:4px"></div>
   </div>
@@ -1376,13 +1364,13 @@ function vCyc(c){
         <div class="lbl">Active Cycle</div>
         ${cycNameEdit===cyc.id
           ?`<div style="display:flex;gap:6px;margin-top:2px"><input id="cycname-edit" class="ins" style="font-size:15px;padding:6px 8px" value="${cyc.name||cyc.weeks+'W Block'}" onkeydown="if(event.key==='Enter')saveCycName('${cyc.id}',this.value)"><button class="btn btns" style="padding:0 10px" onclick="saveCycName('${cyc.id}',document.getElementById('cycname-edit').value)">✓</button></div>`
-          :`<div style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--fn);font-size:16px;font-weight:800;color:var(--g2)">${cyc.name||cyc.weeks+'W Block'}</span><button style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--t3);padding:0;line-height:1" onclick="startEditCycName('${cyc.id}')" title="Rename plan">✎</button></div>`}
-        <div style="font-size:12px;color:var(--t3);margin-top:2px">${cyc.startDate}</div>
+          :`<div style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--fn);font-size:16px;font-weight:800;color:var(--g2)">${cyc.name||cyc.weeks+'W Block'}</span><button style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--t2);padding:0;line-height:1" onclick="startEditCycName('${cyc.id}')" title="Rename plan">✎</button></div>`}
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">${cyc.startDate}</div>
       </div>
       <button class="btnp btns" onclick="nav('train')">Train →</button>
     </div>
     <div class="prog-bar"><div class="prog-fill" style="width:${Math.round(cyc.sessions.filter(s=>s.done).length/cyc.sessions.length*100)}%"></div></div>
-    <div style="font-size:11px;color:var(--t3);margin-top:4px;font-family:var(--fn)">${cyc.sessions.filter(s=>s.done).length}/${cyc.sessions.length} sessions complete</div>
+    <div style="font-size:11px;color:var(--t2);margin-top:4px;font-family:var(--fn)">${cyc.sessions.filter(s=>s.done).length}/${cyc.sessions.length} sessions complete</div>
   </div>`:''}
   ${S.cycles.length>1?`<div class="lbl mb8">History</div>${[...S.cycles].reverse().slice(1).map(cc=>{
     const isPending=cycDelPending===cc.id;
@@ -1390,8 +1378,8 @@ function vCyc(c){
       <div style="flex:1">
         ${cycNameEdit===cc.id
           ?`<div style="display:flex;gap:6px;margin-bottom:2px"><input id="cycname-edit-${cc.id}" class="ins" style="font-size:13px;padding:5px 8px" value="${cc.name||cc.weeks+'W Block'}" onkeydown="if(event.key==='Enter')saveCycName('${cc.id}',this.value)"><button class="btn btns" style="padding:0 10px;font-size:12px" onclick="saveCycName('${cc.id}',document.getElementById('cycname-edit-${cc.id}').value)">✓</button></div>`
-          :`<div style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--fn);font-size:14px;font-weight:700;color:var(--g2)">${cc.name||cc.weeks+'W Block'} · ${cc.startDate}</span><button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--t3);padding:0;line-height:1" onclick="startEditCycName('${cc.id}')" title="Rename">✎</button></div>`}
-        <div style="font-size:12px;color:var(--t3);margin-top:2px">${cc.sessions.filter(s=>s.done).length}/${cc.sessions.length} sessions</div>
+          :`<div style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--fn);font-size:14px;font-weight:700;color:var(--g2)">${cc.name||cc.weeks+'W Block'} · ${cc.startDate}</span><button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--t2);padding:0;line-height:1" onclick="startEditCycName('${cc.id}')" title="Rename">✎</button></div>`}
+        <div style="font-size:12px;color:var(--t2);margin-top:2px">${cc.sessions.filter(s=>s.done).length}/${cc.sessions.length} sessions</div>
         <div class="prog-bar mt4" style="width:100px;margin-top:4px"><div class="prog-fill" style="width:${Math.round(cc.sessions.filter(s=>s.done).length/cc.sessions.length*100)}%"></div></div>
       </div>
       ${isPending
@@ -1432,7 +1420,7 @@ function rlExSel(){
     h+=`<div class="cat-sec">
       <div class="cat-hdr" onclick="toggleCat('${cat.key}')">
         <div class="cat-hdr-l">
-          <span style="font-size:14px;color:var(--t3)">${isOpen?'▾':'▸'}</span>
+          <span style="font-size:21px;color:var(--t2)">${isOpen?'▾':'▸'}</span>
           <span class="cat-name">${cat.label}</span>
           <span class="cat-cnt ${cc}">${sc}/${cat.exs.length}</span>
           ${hgc?`<span style="font-size:10px;color:#6dcc8a;font-family:var(--fn);font-weight:700">⌂${hgc}</span>`:''}
@@ -1818,7 +1806,7 @@ function rComparePanel(cycId,week,day){
   const rows=(sess.exercises||[]).map(ex=>{
     const sets=ex.sets||[];
     const logged=sets.filter(s=>parseFloat(s.weight)>0);
-    if(!logged.length)return`<div class="cmp-row"><span class="cmp-name">${ex.name}</span><span class="cmp-val" style="color:var(--t3)">no data</span></div>`;
+    if(!logged.length)return`<div class="cmp-row"><span class="cmp-name">${ex.name}</span><span class="cmp-val" style="color:var(--t2)">no data</span></div>`;
     const mSfx=ex.metric==='metres'?'m':ex.metric==='seconds'?'s':ex.metric==='minutes'?'min':'r';
     let summary;
     if(ex.wuMode&&ex.topSetIdx!=null&&sets[ex.topSetIdx]){
@@ -1836,8 +1824,8 @@ function rComparePanel(cycId,week,day){
     return`<div class="cmp-row"><span class="cmp-name">${ex.name}</span><span class="cmp-val">${summary}</span></div>`;
   }).filter(Boolean).join('');
   return`<div class="cmp-panel">${banners}
-    <div class="cmp-hdr">↺${label}${sess.notes?` · <em style="font-weight:400;color:var(--t3)">${sess.notes.slice(0,40)}${sess.notes.length>40?'…':''}</em>`:''}
-    </div>${rows||'<div style="color:var(--t3);font-size:13px;padding:4px 0">No exercises logged</div>'}
+    <div class="cmp-hdr">↺${label}${sess.notes?` · <em style="font-weight:400;color:var(--t2)">${sess.notes.slice(0,40)}${sess.notes.length>40?'…':''}</em>`:''}
+    </div>${rows||'<div style="color:var(--t2);font-size:13px;padding:4px 0">No exercises logged</div>'}
   </div>`;
 }
 
@@ -1857,7 +1845,7 @@ function vTrain(c){
   if(siblings.length>0){
     h+=`<div class="pnav mb8" style="align-items:center">
       ${siblings.map(s=>`<div class="pill ${s.id===S.cid?'on':''}" onclick="switchCycle('${s.id}')" style="font-family:var(--fn);font-weight:800">C${s.cycleNumber||1}</div>`).join('')}
-      ${isLatest?`<button class="pill" style="background:var(--bg4);border:1px dashed var(--b2);color:var(--t3)" onclick="startNextCycle('${S.cid}')">+ C${nextCycNum}</button>`:''}
+      ${isLatest?`<button class="pill" style="background:var(--bg4);border:1px dashed var(--b2);color:var(--t2)" onclick="startNextCycle('${S.cid}')">+ C${nextCycNum}</button>`:''}
     </div>`;
   }
   h+=`<div class="pnav">
@@ -1935,8 +1923,6 @@ function rSess(sess,cid){
   return sorted.map(ex=>rEx(ex,sess,cid)).join('');
 }
 
-let exMenuOpen={};
-function toggleExMenu(exId,e){if(e)e.stopPropagation();exMenuOpen[exId]=!exMenuOpen[exId];rv();}
 let exCollapsed={};
 function toggleExCollapse(exId,e){e&&e.stopPropagation();exCollapsed[exId]=!exCollapsed[exId];rv();}
 let exNotesOpen={};
@@ -1985,7 +1971,6 @@ function moveBtns(ex,sess,cid){
   </div>`;
 }
 function rEx(ex,sess,cid){
-  if((ex.role==='main'||ex.role==='main_push')&&ex.wuMode)return rWUEx(ex,sess,cid);
   if(ex.supersetWith)return rSSEx(ex,sess,cid);
   const rl={main:'Main · ME Squat/Pull',main_push:'Main · ME Push',push:'Push',push2:'Push 2',grip:'Grip',func:'Functional',neck:'Neck',acc:'Accessory',acc2:'Accessory',legs_acc:'Legs',core_acc:'Core',manual:'Added'};
   const role=rl[ex.role]||(ex.role.startsWith('acc')?'Accessory':ex.role);
@@ -2002,21 +1987,16 @@ function rEx(ex,sess,cid){
     <div class="exbh">
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
-        <div style="cursor:pointer;flex:1" onclick="toggleExNotes('${ex.id}')"><div class="exbn">${ex.name} <span style="font-size:11px;color:var(--t3)">${exNotesOpen[ex.id]?'▾':'▸'}</span></div><div class="exbr">${role}</div></div>
-        <div style="display:flex;gap:5px;align-items:flex-start">
-          ${isMainLift?`<button class="sw-btn ${ex.focus==='Max Effort'?'on':''}" onclick="toggleFocus('${cid}',${sess.week},${sess.day},'${ex.id}')" title="ME/DE">${ex.focus==='Max Effort'?'ME':'DE'}</button>`:''}
-          ${isMe?`<button class="sw-btn" onclick="toggleWUMode('${cid}',${sess.week},${sess.day},'${ex.id}')">Work Up</button>`:''}
-          <button class="sw-btn" style="font-size:15px;letter-spacing:.1em;padding:0 8px" onclick="toggleExMenu('${ex.id}',event)" title="More options">···</button>
+        <div style="cursor:pointer;flex:1" onclick="toggleExNotes('${ex.id}')"><div class="exbn">${ex.name} <span style="font-size:11px;color:var(--t2)">${exNotesOpen[ex.id]?'▾':'▸'}</span></div><div class="exbr">${role}</div></div>
+        <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+          ${isMainLift?`<button class="sw-btn" onclick="toggleFocus('${cid}',${sess.week},${sess.day},'${ex.id}')" title="ME/DE">${ex.focus==='Max Effort'?'ME':'DE'}</button>`:''}
+          <button class="sw-btn" title="Switch weight label" onclick="setWMode('${cid}',${sess.week},${sess.day},'${ex.id}')">${ex.weightMode||'kg'}</button>
+          <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${exCollapsed[ex.id]?'Expand':'Collapse'}">${exCollapsed[ex.id]?'▸':'▾'}</button>
         </div>
       </div>
       <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}${metricBadge(exMetric)}${orm?`<span class="orm-bdg">≈1RM ${orm}${uw()}</span>`:''}</div>
     </div>
-    ${exMenuOpen[ex.id]?`<div class="ex-omenu">
-      <button class="sw-btn" onclick="setWMode('${cid}',${sess.week},${sess.day},'${ex.id}')">${ex.weightMode||'kg'} mode</button>
-      <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
-      ${ex.skill==='Accessories'?`<button class="sw-btn" onclick="openSupersetPicker('${cid}',${sess.week},${sess.day},'${ex.id}')">⊕ Superset</button>`:''}
-    </div>`:''}
     <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
     ${notesPanel(ex,cid,sess.week,sess.day)}`;
   if(tgt)h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
@@ -2025,6 +2005,7 @@ function rEx(ex,sess,cid){
       <div class="tgt-t">${tgt.isDeload?'Deload Target':'Suggested Target'}</div>
       <div class="tgt-v">${tgt.kg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.reps}${exMetric==='reps'?'r':exMetric==='metres'?'m':exMetric==='seconds'?'s':'min'}</div>
       <div class="tgt-p">${tgt.note}</div>
+      <div style="color:var(--green);font-size:11px;margin-top:5px;line-height:1.5;font-family:var(--fn)">Last time: ${tgt.pKg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.pReps}${exMetric==='reps'?'r':exMetric==='metres'?'m':exMetric==='seconds'?'s':'min'}${tgt.pSets&&parseInt(tgt.pSets)>1?` × ${tgt.pSets} sets`:''}${tgt.pEquipment?` · ${tgt.pEquipment}`:''}${tgt.pNotes?`<br>“${tgt.pNotes}”`:''}</div>
     </div>
     <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}',${tgt.kg},${tgt.reps})">Apply</button>
   </div>`;
@@ -2071,142 +2052,6 @@ function rEx(ex,sess,cid){
   return h;
 }
 
-function rWUEx(ex,sess,cid){
-  if(!ex.sets||!ex.sets.length)ex.sets=[mkSet()];
-  const topIdx=ex.topSetIdx; // null = no top set marked
-  const exMetric=ex.metric||'reps';
-  const repLbl=metricLbl(exMetric);
-  const repMode=exMetric==='reps'?'numeric':'decimal';
-  const tgt=getTgt(ex.libId,cid,sess.week,sess.day);
-  const orm=exMetric==='reps'?getBest1RM(ex.libId):null;
-  let h=`<div class="exb me">
-    <div class="exbh">
-      <div class="fbet">
-        ${moveBtns(ex,sess,cid)}
-        <div style="cursor:pointer;flex:1" onclick="toggleExNotes('${ex.id}')"><div class="exbn">${ex.name} <span style="font-size:11px;color:var(--t3)">${exNotesOpen[ex.id]?'▾':'▸'}</span></div><div class="exbr">Main · Working Up</div></div>
-        <div style="display:flex;gap:5px;align-items:flex-start">
-          <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${exCollapsed[ex.id]?'Expand':'Collapse'}">${exCollapsed[ex.id]?'▸':'▾'}</button>
-          <span class="sw-btn on" style="pointer-events:none;cursor:default">WU</span>
-          <button class="sw-btn" onclick="toggleWUMode('${cid}',${sess.week},${sess.day},'${ex.id}')">Flat</button>
-          <button class="sw-btn" style="font-size:15px;letter-spacing:.1em;padding:0 8px" onclick="toggleExMenu('${ex.id}',event)" title="More options">···</button>
-        </div>
-      </div>
-      <div class="fwrap mt8">
-        ${sb(ex.skill)}${fb(ex.focus)}
-        <span class="wu-badge">★ Working Up</span>
-        ${orm?`<span class="orm-bdg">≈1RM ${orm}${uw()}</span>`:''}
-      </div>
-    </div>
-    ${exMenuOpen[ex.id]?`<div class="ex-omenu">
-      <button class="sw-btn" onclick="setWMode('${cid}',${sess.week},${sess.day},'${ex.id}')">${ex.weightMode||'kg'} mode</button>
-      <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
-      ${ex.skill==='Accessories'?`<button class="sw-btn" onclick="openSupersetPicker('${cid}',${sess.week},${sess.day},'${ex.id}')">⊕ Superset</button>`:''}
-    </div>`:''}
-    <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
-    ${notesPanel(ex,cid,sess.week,sess.day)}`;
-  if(tgt)h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
-    <span class="tgt-icon" style="${tgt.isDeload?'color:var(--g)':''}">${tgt.isDeload?'↓':'↑'}</span>
-    <div class="tgt-body">
-      <div class="tgt-t">${tgt.isDeload?'Deload Top Set':'Top Set Target'}</div>
-      <div class="tgt-v">${tgt.kg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.reps}r</div>
-      <div class="tgt-p">${tgt.note}</div>
-    </div>
-    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}',${tgt.kg},${tgt.reps})">Apply</button>
-  </div>`;
-  h+=`<div class="lbl mb6">Equipment</div>
-    <input class="ins mb10" value="${(ex.sets[0]||{}).equipment||''}" placeholder="Barbell, SSB, Chains…" oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',0,'equipment',this.value)">
-    <div class="lbl mb6">Attempts <span style="font-size:10px;color:var(--t3);margin-left:6px;font-family:var(--fb);text-transform:none;letter-spacing:0;font-weight:400">tap ★ to mark top set · tap again to unmark</span></div>`;
-  ex.sets.forEach((s,si)=>{
-    const isTop=topIdx!==null&&si===topIdx;
-    const isBackoff=topIdx!==null&&si>topIdx;
-    if(isTop){
-      // Top set — full detail
-      h+=`<div class="setc topset">
-        <div class="wu-row">
-          <div class="snum" style="color:var(--g2)">${si+1}</div>
-          <div class="sf"><label>${wLabel(ex)}</label>
-            <input type="number" inputmode="decimal" value="${s.weight}" placeholder="0" style="${s.failed?failStyle(s):'border-color:var(--g);font-weight:700'}"
-              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)"
-              ${exMetric==='reps'?`onblur="prCheck('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${si})"`:''}>
-          </div>
-          <div class="sf"><label>${repLbl}</label>
-            <input type="number" inputmode="${repMode}" value="${s.reps}" placeholder="0" style="${s.failed?failStyle(s):'border-color:var(--g);font-weight:700'}"
-              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value)">
-          </div>
-          <button class="star-btn on" title="Top Set — tap to unmark" onclick="setTopSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">★</button>
-          <button class="btn btnd btnxs" onclick="rmSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>
-        </div>
-        <div class="sr2 mt8">
-          <div class="sf"><label>RPE</label><input type="number" inputmode="decimal" step=".5" min="1" max="10" value="${s.rpe||''}" placeholder="1–10"
-            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rpe',this.value)"></div>
-          <div class="sf"><label>Rest (s)</label><input type='number' inputmode='numeric' value="${s.rest||''}" placeholder="${S.defRest||60}"
-            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rest',this.value)"></div>
-          <div class="sf"><label>Notes</label><input value="${s.notes||''}" placeholder="…"
-            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'notes',this.value)"></div>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="rest-btn" style="flex:1;margin-top:0" onclick="startRest('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">⏱ Rest · ${s.rest?fmtS(parseInt(s.rest)||parseRest(s.rest)):fmtS(S.defRest||60)}</button>
-          ${!s.failed?`<button class="pr-btn" title="Log top set as PR" onclick="logSetAsPR('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${si})">🏆</button>`:''}
-          <button class="fail-btn ${s.failed?'on':''}" onclick="toggleFail('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕${s.failed?' MISSED':' MISS?'}</button>
-        </div>
-      </div>`;
-    } else if(isBackoff){
-      // Back-off set — shows sets + reps fields
-      h+=`<div class="setc ${s.failed?'failed':''}" style="border-left:3px solid var(--b2);background:rgba(255,255,255,.02)">
-        <div style="font-size:10px;color:var(--t3);font-family:var(--fn);font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px">Back-off ${si+1}</div>
-        <div class="wu-row-bo">
-          <div class="snum" style="color:var(--t3)">${si+1}</div>
-          <div class="sf"><label>${wLabel(ex)}</label>
-            <input type="number" inputmode="decimal" value="${s.weight}" placeholder="0" style="${failStyle(s)}"
-              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)">
-          </div>
-          <div class="sf"><label>${repLbl}</label>
-            <input type="number" inputmode="${repMode}" value="${s.reps}" placeholder="0" style="${failStyle(s)}"
-              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value)">
-          </div>
-          <div class="sf"><label>Sets</label>
-            <input type="number" inputmode="numeric" value="${s.sets||''}" placeholder="1" title="Number of back-off sets" style="${failStyle(s)}"
-              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'sets',this.value)">
-          </div>
-          <button class="star-btn" title="Mark as Top Set" onclick="setTopSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">☆</button>
-          <button class="btn btnd btnxs" onclick="rmSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>
-        </div>
-        <div class="sr2 mt8">
-          <div class="sf"><label>RPE</label><input type="number" inputmode="decimal" step=".5" min="1" max="10" value="${s.rpe||''}" placeholder="1–10"
-            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rpe',this.value)"></div>
-          <div class="sf"><label>Rest (s)</label><input type='number' inputmode='numeric' value="${s.rest||''}" placeholder="${S.defRest||60}"
-            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rest',this.value)"></div>
-          <div class="sf"><label>Notes</label><input value="${s.notes||''}" placeholder="…"
-            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'notes',this.value)"></div>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <button class="rest-btn" style="flex:1;margin-top:0" onclick="startRest('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">⏱ Rest · ${s.rest?fmtS(parseInt(s.rest)||parseRest(s.rest)):fmtS(S.defRest||60)}</button>
-          <button class="fail-btn ${s.failed?'on':''}" onclick="toggleFail('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕${s.failed?' MISSED':' MISS?'}</button>
-        </div>
-      </div>`;
-    } else {
-      // Attempt row — minimal
-      h+=`<div class="setc attempt ${s.failed?'failed':''}">
-        <div class="wu-row">
-          <div class="snum" style="color:var(--t3)">${si+1}</div>
-          <div class="sf"><label>${wLabel(ex)}</label>
-            <input type="number" inputmode="decimal" value="${s.weight}" placeholder="0" style="${failStyle(s)}"
-              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)">
-          </div>
-          <div class="sf"><label>${repLbl}</label>
-            <input type="number" inputmode="${repMode}" value="${s.reps}" placeholder="0" style="${failStyle(s)}"
-              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value)">
-          </div>
-          <button class="star-btn" title="Mark as Top Set" onclick="setTopSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">☆</button>
-          <button class="btn btnd btnxs" onclick="rmSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>
-        </div>
-      </div>`;
-    }
-  });
-  h+=`<button class="btn btns" style="width:100%;margin-top:4px" onclick="addSet('${cid}',${sess.week},${sess.day},'${ex.id}')">+ Add Attempt</button></div></div>`;
-  return h;
-}
-
 function rSSEx(ex,sess,cid){
   const ss=ex.supersetWith;
   if(!ss.sets||ss.sets.length!==ex.sets.length)ss.sets=ex.sets.map((_,i)=>ss.sets?.[i]||mkSet());
@@ -2217,27 +2062,24 @@ function rSSEx(ex,sess,cid){
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
         <div style="cursor:pointer;flex:1" onclick="toggleExNotes('${ex.id}')">
-          <div class="exbn"><span style="color:var(--g2)">A</span> ${ex.name} <span style="color:var(--t3);font-size:14px">⊕</span> <span style="color:var(--gd)">B</span> ${ss.name} <span style="font-size:11px;color:var(--t3)">${exNotesOpen[ex.id]?'▾':'▸'}</span></div>
+          <div class="exbn"><span style="color:var(--g2)">A</span> ${ex.name} <span style="color:var(--t2);font-size:14px">⊕</span> <span style="color:var(--gd)">B</span> ${ss.name} <span style="font-size:11px;color:var(--t2)">${exNotesOpen[ex.id]?'▾':'▸'}</span></div>
           <div class="exbr">Superset</div>
         </div>
-        <div style="display:flex;gap:5px;align-items:flex-start">
+        <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
           <button class="sw-btn btnd" style="color:#e06060" onclick="removeSupersetPair('${cid}',${sess.week},${sess.day},'${ex.id}')">Unlink</button>
-          <button class="sw-btn" style="font-size:15px;letter-spacing:.1em;padding:0 8px" onclick="toggleExMenu('${ex.id}',event)" title="More options">···</button>
+          <button class="sw-btn" title="Switch weight label" onclick="setWMode('${cid}',${sess.week},${sess.day},'${ex.id}')">${ex.weightMode||'kg'}</button>
+          <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap A</button>
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${exCollapsed[ex.id]?'Expand':'Collapse'}">${exCollapsed[ex.id]?'▸':'▾'}</button>
         </div>
       </div>
     </div>
-    ${exMenuOpen[ex.id]?`<div class="ex-omenu">
-      <button class="sw-btn" onclick="setWMode('${cid}',${sess.week},${sess.day},'${ex.id}')">${ex.weightMode||'kg'} mode</button>
-      <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
-      ${ex.skill==='Accessories'?`<button class="sw-btn" onclick="openSupersetPicker('${cid}',${sess.week},${sess.day},'${ex.id}')">⊕ Superset</button>`:''}
-    </div>`:''}
     <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
     ${notesPanel(ex,cid,sess.week,sess.day)}`;
   if(tgt)h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
     <span class="tgt-icon" style="${tgt.isDeload?'color:var(--g)':''}">${tgt.isDeload?'↓':'↑'}</span>
     <div class="tgt-body"><div class="tgt-t">${tgt.isDeload?'Deload Target':'Target (A)'}</div>
-    <div class="tgt-v">${tgt.kg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.reps}r</div><div class="tgt-p">${tgt.note}</div></div>
+    <div class="tgt-v">${tgt.kg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.reps}r</div><div class="tgt-p">${tgt.note}</div>
+    <div style="color:var(--green);font-size:11px;margin-top:5px;line-height:1.5;font-family:var(--fn)">Last time: ${tgt.pKg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.pReps}r${tgt.pSets&&parseInt(tgt.pSets)>1?` × ${tgt.pSets} sets`:''}${tgt.pEquipment?` · ${tgt.pEquipment}`:''}${tgt.pNotes?`<br>“${tgt.pNotes}”`:''}</div></div>
     <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}',${tgt.kg},${tgt.reps})">Apply</button>
   </div>`;
   // Column headers
@@ -2356,7 +2198,6 @@ function addSet(cid,w,d,eid){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
   const p=ex.sets[ex.sets.length-1]||{};
   ex.sets.push({...mkSet(),weight:'',rest:p.rest||'',equipment:p.equipment||''});
-  if(ex.wuMode)ex.topSetIdx=ex.sets.length-1;
   if(ex.supersetWith)ex.supersetWith.sets.push(mkSet());
   save();rv();
 }
@@ -2364,7 +2205,6 @@ function rmSet(cid,w,d,eid,si){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
   ex.sets.splice(si,1);
   if(!ex.sets.length)ex.sets=[mkSet()];
-  if(ex.wuMode&&ex.topSetIdx>=ex.sets.length)ex.topSetIdx=ex.sets.length-1;
   if(ex.supersetWith){ex.supersetWith.sets.splice(si,1);if(!ex.supersetWith.sets.length)ex.supersetWith.sets=[mkSet()];}
   save();rv();
 }
@@ -2396,8 +2236,8 @@ function prvDay(){
 function vStats(c){
   const cyc=S.cycles.find(x=>x.id===S.cid);
   if(!cyc){c.innerHTML=`<div class="empty">▦<h3>No Active Cycle</h3><p>Generate a cycle to see stats</p></div>`;return;}
-  if(!S.stTab)S.stTab='over';
-  const tabs=[['over','Overview'],['vol','Volume'],['rpe','RPE'],['ruck','Ruck'],['orm','Est 1RM'],['prs','PRs']];
+  if(!S.stTab||S.stTab==='rpe')S.stTab='over';
+  const tabs=[['over','Overview'],['vol','Volume'],['cycle','Cycle'],['ruck','Ruck'],['orm','Est 1RM'],['prs','PRs']];
   c.innerHTML=`<div class="stitle">Stats</div>
   <div class="stabs">${tabs.map(([k,l])=>`<div class="stab ${S.stTab===k?'on':''}" onclick="setStT('${k}')">${l}</div>`).join('')}</div>
   <div id="stcont"></div>`;
@@ -2408,7 +2248,7 @@ function stRender(cyc){
   const el=document.getElementById('stcont');if(!el)return;
   if(S.stTab==='over')stOver(el,cyc);
   else if(S.stTab==='vol')stVol(el,cyc);
-  else if(S.stTab==='rpe')stRPE(el,cyc);
+  else if(S.stTab==='cycle')stCycle(el,cyc);
   else if(S.stTab==='ruck')stRuck(el,cyc);
   else if(S.stTab==='orm')stORM(el);
   else if(S.stTab==='prs')vPRs(el);
@@ -2424,7 +2264,7 @@ function stOver(el,cyc){
   const pct=Math.round(done/cyc.sessions.length*100)||0;
   el.innerHTML=`
   <div class="sgrid">
-    <div class="stc"><div class="stv">${done}<span style="font-size:14px;color:var(--t3)">/${cyc.sessions.length}</span></div><div class="stl">Done</div></div>
+    <div class="stc"><div class="stv">${done}<span style="font-size:14px;color:var(--t2)">/${cyc.sessions.length}</span></div><div class="stl">Done</div></div>
     <div class="stc"><div class="stv">${vTonnes(tV)}</div><div class="stl">Volume</div></div>
     <div class="stc"><div class="stv" style="font-size:${bME.weight?'20':'16'}px">${bME.weight?bME.weight+uw():'—'}</div><div class="stl">Best Top Set</div></div>
     <div class="stc"><div class="stv" style="font-size:${bR?'20':'16'}px">${bR?bR+ruDist():'—'}</div><div class="stl">Best Ruck</div></div>
@@ -2437,7 +2277,7 @@ function stOver(el,cyc){
         const wd=cyc.sessions.filter(s=>s.week===w&&s.done).length;
         const wt=cyc.sessions.filter(s=>s.week===w).length;
         const dl=isDeload(S.cid,w);
-        return`<div style="text-align:center"><div style="font-family:var(--fn);font-size:10px;color:var(--t3);margin-bottom:2px">W${w+1}${dl?' ↓':''}</div><div style="font-family:var(--fn);font-size:14px;font-weight:700;color:${wd===wt?'var(--green)':'var(--t2)'}">${wd}/${wt}</div></div>`;
+        return`<div style="text-align:center"><div style="font-family:var(--fn);font-size:10px;color:var(--t2);margin-bottom:2px">W${w+1}${dl?' ↓':''}</div><div style="font-family:var(--fn);font-size:14px;font-weight:700;color:${wd===wt?'var(--green)':'var(--t2)'}">${wd}/${wt}</div></div>`;
       }).join('')}
     </div>
   </div>`;
@@ -2453,7 +2293,7 @@ function stVol(el,cyc){
     const vs=d.v>0?vTonnes(d.v):'';
     return`<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bww}" height="${bh.toFixed(1)}" fill="var(--gd)" rx="4"/>
       ${d.v>0?`<text x="${(x+bww/2).toFixed(1)}" y="${(y-4).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${vs}</text>`:''}
-      <text x="${(x+bww/2).toFixed(1)}" y="${(Hw-6).toFixed(1)}" fill="var(--t3)" font-size="12" text-anchor="middle" font-family="Barlow Condensed" font-weight="700">W${d.w}</text></g>`;
+      <text x="${(x+bww/2).toFixed(1)}" y="${(Hw-6).toFixed(1)}" fill="var(--t2)" font-size="12" text-anchor="middle" font-family="Barlow Condensed" font-weight="700">W${d.w}</text></g>`;
   }).join('');
   el.innerHTML=`<div class="card"><div class="lbl mb8">Week Volume Comparison</div>
     <svg width="${Ww}" height="${Hw}" viewBox="0 0 ${Ww} ${Hw}" style="display:block;width:100%">
@@ -2483,73 +2323,95 @@ function rVChart(name,cyc){
     return`<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" fill="var(--gd)" rx="3"/>
       ${d.v>0?`<text x="${(x+bw/2).toFixed(1)}" y="${(y-4).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${vs}</text>`:''}
       ${d.bk>0?`<text x="${(x+bw/2).toFixed(1)}" y="${(H-20).toFixed(1)}" fill="var(--g2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${d.bk}${uw()}</text>`:''}
-      <text x="${(x+bw/2).toFixed(1)}" y="${(H-6).toFixed(1)}" fill="var(--t3)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${d.lbl}</text></g>`;
+      <text x="${(x+bw/2).toFixed(1)}" y="${(H-6).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${d.lbl}</text></g>`;
   }).join('');
   el.innerHTML=`<div class="scrollx"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
     <line x1="10" y1="${pT+cH}" x2="${W-10}" y2="${pT+cH}" stroke="var(--b)" stroke-width="1"/>${bars}
   </svg></div>`;
 }
-function stRPE(el,cyc){
-  const exNames=[...new Set(cyc.sessions.flatMap(s=>(s.exercises||[]).map(e=>e.name)))].filter(Boolean).sort();
-  const selEx=S.stRex&&exNames.includes(S.stRex)?S.stRex:(exNames[0]||'');
-  el.innerHTML=`<div class="card"><div class="lbl mb8">RPE Trend by Exercise</div>
-    <select onchange="setStRex(this.value)" class="mb12">${exNames.map(n=>`<option value="${n}" ${n===selEx?'selected':''}>${n}</option>`).join('')}</select>
-    <div id="rpe-chart"></div></div>`;
-  if(selEx)drawRPE(selEx,cyc);
+function parseDuration(str){
+  if(!str)return 0;
+  str=String(str).trim().toLowerCase();
+  if(str.includes(':')){const p=str.split(':');return(parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+  const hM=str.match(/(\d+(?:\.\d+)?)\s*h/),mM=str.match(/(\d+(?:\.\d+)?)\s*m/);
+  if(hM||mM)return(hM?parseFloat(hM[1])*60:0)+(mM?parseFloat(mM[1]):0);
+  const n=parseFloat(str);
+  return isNaN(n)?0:n;
 }
-function setStRex(n){S.stRex=n;save();rv();}
-function drawRPE(name,cyc){
-  const el=document.getElementById('rpe-chart');if(!el)return;
-  const pts=[];
-  cyc.sessions.forEach(s=>(s.exercises||[]).filter(e=>e.name===name).forEach(e=>{
-    effSets(e).filter(st=>st&&st.rpe&&parseFloat(st.rpe)>0).forEach(st=>pts.push({x:`W${s.week+1}D${s.day+1}`,rpe:parseFloat(st.rpe)}));
-  }));
-  if(!pts.length){el.innerHTML='<div class="chart-empty">No RPE data yet — enter RPE values in your sets</div>';return;}
-  const xL=[...new Set(pts.map(p=>p.x))];
-  const W=Math.max(240,xL.length*52),H=130,pL=28,pR=10,pT=14,pB=26,cW=W-pL-pR,cH=H-pT-pB;
-  const yMn=4,yMx=10;
-  const xp=l=>pL+(xL.indexOf(l)+0.5)*(cW/xL.length);
-  const yp=v=>pT+cH-((v-yMn)/(yMx-yMn))*cH;
-  const ap=xL.map(x=>{const ps=pts.filter(p=>p.x===x);return{x,avg:ps.reduce((s,p)=>s+p.rpe,0)/ps.length};});
-  const pD=ap.map((p,i)=>`${i===0?'M':'L'} ${xp(p.x).toFixed(1)} ${yp(p.avg).toFixed(1)}`).join(' ');
-  const yLn=[6,7,8,9,10].map(v=>`<line x1="${pL}" y1="${yp(v).toFixed(1)}" x2="${W-pR}" y2="${yp(v).toFixed(1)}" stroke="var(--b)" stroke-width="1"/>
-    <text x="${(pL-4).toFixed(1)}" y="${(yp(v)+4).toFixed(1)}" fill="var(--t3)" font-size="9" text-anchor="end" font-family="Barlow Condensed">${v}</text>`).join('');
-  const dots=ap.map(p=>`<circle cx="${xp(p.x).toFixed(1)}" cy="${yp(p.avg).toFixed(1)}" r="4" fill="var(--g)" stroke="var(--bg2)" stroke-width="1.5"/>
-    <text x="${xp(p.x).toFixed(1)}" y="${(H-pB+12).toFixed(1)}" fill="var(--t3)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${p.x}</text>
-    <text x="${xp(p.x).toFixed(1)}" y="${(yp(p.avg)-8).toFixed(1)}" fill="var(--g2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${p.avg.toFixed(1)}</text>`).join('');
-  el.innerHTML=`<div class="scrollx"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
-    ${yLn}<path d="${pD}" fill="none" stroke="var(--gd)" stroke-width="1.5" stroke-dasharray="4,3"/>${dots}
-  </svg></div>
-  <div style="font-size:10px;color:var(--t3);font-family:'Barlow Condensed';letter-spacing:.07em;text-transform:uppercase;margin-top:8px">Avg RPE per session · Top set used in Working Up mode</div>`;
+function jumpToCycleDay(cid,w,d){
+  S.cid=cid;S.tab='train';S.wk=w;S.dy=d;save();render();
+}
+function stCycle(el,cyc){
+  const sTypeLbl={long:'Long',short:'Short',full:'Full',ruck:'Ruck'};
+  const weeks=Array.from({length:cyc.weeks},(_,w)=>w);
+  function dayBlock(w,sess){
+    const lbl=sTypeLbl[sess.type]||sess.type;
+    if(sess.type==='ruck'){
+      return`<div class="cyov-day" onclick="jumpToCycleDay('${cyc.id}',${w},${sess.day})">
+        <div class="cyov-daylbl">Day ${sess.day+1} · ${lbl}</div>
+      </div>`;
+    }
+    const sorted=[...sess.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
+    const exNames=sorted.map(e=>`<div class="cyov-ex">${e.name}</div>`).join('');
+    return`<div class="cyov-day" onclick="jumpToCycleDay('${cyc.id}',${w},${sess.day})">
+      <div class="cyov-daylbl">Day ${sess.day+1} · ${lbl}</div>
+      ${exNames||'<div class="cyov-ex" style="opacity:.5">No exercises</div>'}
+    </div>`;
+  }
+  function weekCol(w){
+    const sess=cyc.sessions.filter(s=>s.week===w).sort((a,b)=>a.day-b.day);
+    return`<div class="cyov-week">
+      <div class="cyov-weeklbl">Week ${w+1}</div>
+      ${sess.map(s=>dayBlock(w,s)).join('')}
+    </div>`;
+  }
+  let rows='';
+  for(let i=0;i<weeks.length;i+=2){
+    const left=weekCol(weeks[i]);
+    const right=weeks[i+1]!=null?weekCol(weeks[i+1]):'<div class="cyov-week"></div>';
+    rows+=`<div class="cyov-row">${left}${right}</div>`;
+  }
+  el.innerHTML=`<div class="card" style="padding:10px">${rows}</div>`;
 }
 function stRuck(el,cyc){
   const rucks=cyc.sessions.filter(s=>s.type==='ruck').map(s=>({
     w:s.week+1,dist:parseFloat(s.ruckData?.distance)||0,
-    weight:parseFloat(s.ruckData?.weight)||0,dur:s.ruckData?.duration||'',notes:s.ruckData?.notes||''
+    weight:parseFloat(s.ruckData?.weight)||0,dur:s.ruckData?.duration||'',
+    durMin:parseDuration(s.ruckData?.duration),notes:s.ruckData?.notes||''
   }));
   const hD=rucks.some(r=>r.dist>0);
   let chart='<div class="chart-empty">No ruck data logged yet</div>';
   if(hD){
-    const mD=Math.max(...rucks.map(r=>r.dist),1),mW=Math.max(...rucks.map(r=>r.weight),1);
-    const W=Math.max(200,rucks.length*70),H=130,bw=Math.min(28,(W/rucks.length)-10),cH=90,pT=14,pB=26;
+    // Standard reference: 3mi / 40kg / 1hr — all bars even at these values
+    const STD_DIST=S.ruckUnit==='km'?3*1.60934:3;
+    const STD_WEIGHT=uw()==='lbs'?40*2.20462:40;
+    const STD_DUR=60;
+    const W=Math.max(260,rucks.length*100),H=130,bw=Math.min(46,(W/rucks.length)-12),cH=90,pT=14,pB=26;
     const bars=rucks.map((r,i)=>{
-      const dh=Math.max(2,(r.dist/mD)*cH),wh=Math.max(2,(r.weight/mW)*cH*.6);
+      const dh=Math.max(2,Math.min(cH,(r.dist/STD_DIST)*cH));
+      const wh=Math.max(2,Math.min(cH,(r.weight/STD_WEIGHT)*cH));
+      const durH=Math.max(2,Math.min(cH,(r.durMin/STD_DUR)*cH));
       const x=i*(W/rucks.length)+(W/rucks.length-bw)/2;
+      const seg=bw/3;
       return`<g>
-        <rect x="${x.toFixed(1)}" y="${(pT+cH-dh).toFixed(1)}" width="${(bw*.55).toFixed(1)}" height="${dh.toFixed(1)}" fill="var(--gd)" rx="2"/>
-        <rect x="${(x+bw*.45).toFixed(1)}" y="${(pT+cH-wh).toFixed(1)}" width="${(bw*.55).toFixed(1)}" height="${wh.toFixed(1)}" fill="var(--bg5)" rx="2"/>
-        ${r.dist>0?`<text x="${(x+bw*.275).toFixed(1)}" y="${(pT+cH-dh-4).toFixed(1)}" fill="var(--g)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${r.dist}${ruDist()}</text>`:''}
-        ${r.weight>0?`<text x="${(x+bw*.725).toFixed(1)}" y="${(pT+cH-wh-4).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${r.weight}${uw()}</text>`:''}
-        <text x="${(x+bw/2).toFixed(1)}" y="${(H-pB+12).toFixed(1)}" fill="var(--t3)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">W${r.w}</text>
+        <rect x="${x.toFixed(1)}" y="${(pT+cH-dh).toFixed(1)}" width="${(seg*.62).toFixed(1)}" height="${dh.toFixed(1)}" fill="var(--gd)" rx="2"/>
+        <rect x="${(x+seg).toFixed(1)}" y="${(pT+cH-wh).toFixed(1)}" width="${(seg*.62).toFixed(1)}" height="${wh.toFixed(1)}" fill="var(--bg5)" rx="2"/>
+        <rect x="${(x+seg*2).toFixed(1)}" y="${(pT+cH-durH).toFixed(1)}" width="${(seg*.62).toFixed(1)}" height="${durH.toFixed(1)}" fill="var(--green)" rx="2"/>
+        ${r.dist>0?`<text x="${(x+seg*.31).toFixed(1)}" y="${(pT+cH-dh-4).toFixed(1)}" fill="var(--g)" font-size="8" text-anchor="middle" font-family="Barlow Condensed">${r.dist}${ruDist()}</text>`:''}
+        ${r.weight>0?`<text x="${(x+seg*1.31).toFixed(1)}" y="${(pT+cH-wh-4).toFixed(1)}" fill="var(--t2)" font-size="8" text-anchor="middle" font-family="Barlow Condensed">${r.weight}${uw()}</text>`:''}
+        ${r.durMin>0?`<text x="${(x+seg*2.31).toFixed(1)}" y="${(pT+cH-durH-4).toFixed(1)}" fill="var(--green)" font-size="8" text-anchor="middle" font-family="Barlow Condensed">${r.dur}</text>`:''}
+        <text x="${(x+bw/2).toFixed(1)}" y="${(H-pB+12).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">W${r.w}</text>
       </g>`;
     }).join('');
     chart=`<div class="scrollx"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
       <line x1="0" y1="${pT+cH}" x2="${W}" y2="${pT+cH}" stroke="var(--b)" stroke-width="1"/>${bars}
     </svg></div>
-    <div style="display:flex;gap:16px;margin-top:8px">
-      <div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:var(--gd);border-radius:2px"></div><span style="font-size:11px;color:var(--t3);font-family:'Barlow Condensed'">Distance</span></div>
-      <div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:var(--bg5);border-radius:2px"></div><span style="font-size:11px;color:var(--t3);font-family:'Barlow Condensed'">Weight</span></div>
-    </div>`;
+    <div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:var(--gd);border-radius:2px"></div><span style="font-size:11px;color:var(--t2);font-family:'Barlow Condensed'">Distance</span></div>
+      <div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:var(--bg5);border-radius:2px"></div><span style="font-size:11px;color:var(--t2);font-family:'Barlow Condensed'">Weight</span></div>
+      <div style="display:flex;gap:4px;align-items:center"><div style="width:10px;height:10px;background:var(--green);border-radius:2px"></div><span style="font-size:11px;color:var(--t2);font-family:'Barlow Condensed'">Duration</span></div>
+    </div>
+    <div style="font-size:10px;color:var(--t2);font-family:var(--fn);margin-top:6px">Bars even at ${Math.round(STD_DIST*10)/10}${ruDist()} · ${Math.round(STD_WEIGHT)}${uw()} · 1hr</div>`;
   }
   el.innerHTML=`<div class="card">${chart}</div>
   ${rucks.filter(r=>r.dist||r.weight).map(r=>`<div class="card-i fbet">
@@ -2557,7 +2419,7 @@ function stRuck(el,cyc){
     <div>
       <div style="font-family:var(--fn);font-size:13px;color:var(--t2)">${r.dur}</div>
       <div class="fwrap mt8">
-        ${r.dist?`<span class="bdg bruck">${r.dist}km</span>`:''}
+        ${r.dist?`<span class="bdg bruck">${r.dist}${ruDist()}</span>`:''}
         ${r.weight?`<span class="bdg bgrip">${r.weight}${uw()}</span>`:''}
       </div>
     </div>
@@ -2591,30 +2453,30 @@ function rOrmTrend(name){
     const label=(d.cycle.name||'C'+(d.cycle.cycleNumber||1)).slice(0,10);
     return`<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" fill="var(--gd)" rx="3"/>
       <text x="${(x+bw/2).toFixed(1)}" y="${(y-4).toFixed(1)}" fill="var(--g2)" font-size="10" font-weight="700" text-anchor="middle" font-family="Barlow Condensed">${Math.round(d.best)}${uw()}</text>
-      <text x="${(x+bw/2).toFixed(1)}" y="${(H-18).toFixed(1)}" fill="var(--t3)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${label}</text>
-      <text x="${(x+bw/2).toFixed(1)}" y="${(H-6).toFixed(1)}" fill="var(--t3)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${d.w}${uw()}×${d.r}</text></g>`;
+      <text x="${(x+bw/2).toFixed(1)}" y="${(H-18).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${label}</text>
+      <text x="${(x+bw/2).toFixed(1)}" y="${(H-6).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${d.w}${uw()}×${d.r}</text></g>`;
   }).join('');
   const first=data[0].best,last=data[data.length-1].best;
   const diff=last-first,pct=first>0?Math.round(diff/first*100):0;
-  const trendNote=diff>0?`<span style="color:var(--green)">▲ +${Math.round(diff)}${uw()} (+${pct}%)</span>`:diff<0?`<span style="color:#e06060">▼ ${Math.round(diff)}${uw()} (${pct}%)</span>`:`<span style="color:var(--t3)">No change</span>`;
+  const trendNote=diff>0?`<span style="color:var(--green)">▲ +${Math.round(diff)}${uw()} (+${pct}%)</span>`:diff<0?`<span style="color:#e06060">▼ ${Math.round(diff)}${uw()} (${pct}%)</span>`:`<span style="color:var(--t2)">No change</span>`;
   el.innerHTML=`<div class="scrollx"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
     <line x1="0" y1="${pT+cH}" x2="${W}" y2="${pT+cH}" stroke="var(--b)" stroke-width="1"/>${bars}
   </svg></div>
-  <div style="font-size:12px;color:var(--t3);font-family:var(--fn);margin-top:6px">First → Latest cycle: ${trendNote}</div>`;
+  <div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:6px">First → Latest cycle: ${trendNote}</div>`;
 }
 function stORM(el){
   const orms=allOrms();
   if(!orms.length){el.innerHTML=`<div class="empty">⊛<h3>No data yet</h3><p>Log sets in Training to see estimated 1RMs</p></div>`;return;}
   const selName=S.stOrmEx&&orms.find(o=>o.name===S.stOrmEx)?S.stOrmEx:orms[0].name;
-  el.innerHTML=`<div class="card-i fbet mb12"><span style="font-size:11px;color:var(--t3);font-family:var(--fn);letter-spacing:.07em;text-transform:uppercase">Brzycki: w × 36 ÷ (37 − reps) · 2–5 rep sets only · Top set used in Working Up mode</span></div>
+  el.innerHTML=`<div class="card-i fbet mb12"><span style="font-size:11px;color:var(--t2);font-family:var(--fn);letter-spacing:.07em;text-transform:uppercase">Brzycki: w × 36 ÷ (37 − reps) · 2–5 rep sets only · Top set used in Working Up mode</span></div>
   <div class="card mb12">
     <div class="lbl mb8">1RM Trend Across Cycles</div>
     <select id="orm-trend-sel" onchange="setOrmEx(this.value)" class="mb12">${orms.map(o=>`<option value="${o.name}" ${o.name===selName?'selected':''}>${o.name}</option>`).join('')}</select>
     <div id="orm-trend-chart"></div>
   </div>
   ${orms.map(o=>`<div class="orm-row">
-    <div><div style="font-family:var(--fn);font-size:15px;font-weight:700">${o.name}</div><div style="font-family:var(--fn);font-size:11px;color:var(--t3);margin-top:2px">${o.w}${uw()} × ${o.r}r</div></div>
-    <div style="text-align:right"><div style="font-family:var(--fn);font-size:22px;font-weight:800;color:var(--g2)">${o.orm}${uw()}</div><div style="font-size:11px;color:var(--t3);font-family:var(--fn);margin-top:2px">est. max</div></div>
+    <div><div style="font-family:var(--fn);font-size:15px;font-weight:700">${o.name}</div><div style="font-family:var(--fn);font-size:11px;color:var(--t2);margin-top:2px">${o.w}${uw()} × ${o.r}r</div></div>
+    <div style="text-align:right"><div style="font-family:var(--fn);font-size:22px;font-weight:800;color:var(--g2)">${o.orm}${uw()}</div><div style="font-size:11px;color:var(--t2);font-family:var(--fn);margin-top:2px">est. max</div></div>
   </div>`).join('')}`;
   rOrmTrend(selName);
 }
@@ -2651,14 +2513,14 @@ function vPRs(c){
         <div class="fbet" style="padding:12px 14px;cursor:pointer;user-select:none" onclick="togglePRGroup(decodeURIComponent('${enc}'))">
           <div>
             <div style="font-family:var(--fn);font-size:15px;font-weight:700">${name}</div>
-            <div style="font-size:11px;color:var(--t3);margin-top:2px;font-family:var(--fn)">${prs.length} record${prs.length!==1?'s':''}</div>
+            <div style="font-size:11px;color:var(--t2);margin-top:2px;font-family:var(--fn)">${prs.length} record${prs.length!==1?'s':''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:12px">
             <div style="text-align:right">
               <div style="font-family:var(--fn);font-size:20px;font-weight:800;color:var(--g2)">${best.kg}${uw()}</div>
               <div style="font-size:12px;color:var(--t2);font-family:var(--fn);font-weight:600">${best.reps} rep${best.reps!==1?'s':''}</div>
             </div>
-            <span style="color:var(--t3);font-size:15px;width:12px">${isOpen?'▾':'▸'}</span>
+            <span style="color:var(--t2);font-size:21px;width:16px">${isOpen?'▾':'▸'}</span>
           </div>
         </div>
         ${isOpen?`<div style="border-top:1px solid var(--b2)">${prs.map((p,pi)=>{
@@ -2666,10 +2528,10 @@ function vPRs(c){
           return`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;${pi<prs.length-1?'border-bottom:0.5px solid var(--b2)':''}${pending?';background:rgba(160,40,40,.08)':''}">
             <div style="flex:1">
               <div style="font-family:var(--fn);font-size:14px;font-weight:800;color:${pi===0?'var(--g2)':'var(--t)'}">${p.kg}${uw()} × ${p.reps} rep${p.reps!==1?'s':''}</div>
-              <div style="font-size:11px;color:var(--t3);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <div style="font-size:11px;color:var(--t2);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 ${prDateEdit===p.id
                   ?`<input type="date" value="${toInputDate(p.date)}" style="font-size:12px;padding:3px 6px;border-radius:4px;background:var(--bg3);border:1px solid var(--g);color:var(--t);font-family:var(--fn)" onchange="savePRDate('${p.id}',this.value)" onblur="savePRDate('${p.id}',this.value)"><button class="btn btns" style="font-size:11px;height:26px;padding:0 8px" onclick="prDateEdit=null;rv()">Cancel</button>`
-                  :`${p.date}${pi===0?' · 🏆 Best':''}<button style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--t3);padding:0;line-height:1;vertical-align:middle" onclick="startEditPRDate('${p.id}')" title="Edit date">✎</button>`
+                  :`${p.date}${pi===0?' · 🏆 Best':''}<button style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--t2);padding:0;line-height:1;vertical-align:middle" onclick="startEditPRDate('${p.id}')" title="Edit date">✎</button>`
                 }
               </div>
               ${p.notes?`<div style="font-size:12px;color:var(--t2);font-style:italic;margin-top:3px;line-height:1.4">${p.notes}</div>`:''}
@@ -2766,21 +2628,21 @@ function vSettings(c){
         'Tap ⋮ → "Add to Home screen" or "Install app" → Add',
         'The AF icon appears on your home screen — works offline, full screen'
       ].map((s,i)=>`<div style="display:flex;gap:8px;padding:5px 0;font-family:var(--fn);font-size:13px;color:var(--t2);border-bottom:0.5px solid var(--b2);align-items:flex-start"><span style="color:var(--gd);font-weight:800;flex-shrink:0">${i+1}.</span><span>${s}</span></div>`).join('')}
-      <div style="margin-top:8px;font-size:12px;color:var(--t3);font-family:var(--fn);line-height:1.6;background:rgba(201,168,76,.08);padding:8px;border-radius:6px;border:1px solid var(--gdk)">
+      <div style="margin-top:8px;font-size:12px;color:var(--t2);font-family:var(--fn);line-height:1.6;background:rgba(201,168,76,.08);padding:8px;border-radius:6px;border:1px solid var(--gdk)">
         Your data is baked into the downloaded file and loads automatically on first open.<br>
         Re-deploy anytime after downloading an updated file to keep the app current.
       </div>
-      <div style="margin-top:8px;font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin-bottom:6px">Alternative — Kiwi Browser</div>
-      <div style="font-size:12px;color:var(--t3);font-family:var(--fn);line-height:1.5">Install <b style="color:var(--t2)">Kiwi Browser</b> from the Play Store. Open the downloaded file in Kiwi → ⋮ → Add to Home screen. No computer needed.</div>
+      <div style="margin-top:8px;font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Alternative — Kiwi Browser</div>
+      <div style="font-size:12px;color:var(--t2);font-family:var(--fn);line-height:1.5">Install <b style="color:var(--t2)">Kiwi Browser</b> from the Play Store. Open the downloaded file in Kiwi → ⋮ → Add to Home screen. No computer needed.</div>
     </div>
     <button class="btnp" style="width:100%" onclick="dlApp()">↓ Download App File</button>
-    <div style="font-size:11px;color:var(--t3);margin-top:8px;text-align:center;font-family:var(--fn);letter-spacing:.04em">
+    <div style="font-size:11px;color:var(--t2);margin-top:8px;text-align:center;font-family:var(--fn);letter-spacing:.04em">
       All data stored on-device · Works fully offline
     </div>
   </div>
   <div class="card">
     <div class="sect">Starter Library</div>
-    <div style="font-size:13px;color:var(--t3);margin-bottom:10px;line-height:1.5">20 exercises across all skill categories to get started quickly.</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:10px;line-height:1.5">20 exercises across all skill categories to get started quickly.</div>
     <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Sample Exercises</button>
   </div>
   <div class="card">
@@ -2790,7 +2652,7 @@ function vSettings(c){
       const days=Math.floor((Date.now()-new Date(S.lastExport).getTime())/86400000);
       const dateStr=new Date(S.lastExport).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
       const warn=days>=7;
-      return`<div style="font-size:12px;color:${warn?'#e0a060':'var(--t3)'};font-family:var(--fn);margin-bottom:10px;${warn?'background:rgba(160,100,40,.1);padding:8px;border-radius:6px;border:1px solid #5a4010':''}">${warn?'⚠ ':''}Last exported: ${dateStr}${warn?` (${days} days ago — consider exporting a fresh backup)`:''}</div>`;
+      return`<div style="font-size:12px;color:${warn?'#e0a060':'var(--t2)'};font-family:var(--fn);margin-bottom:10px;${warn?'background:rgba(160,100,40,.1);padding:8px;border-radius:6px;border:1px solid #5a4010':''}">${warn?'⚠ ':''}Last exported: ${dateStr}${warn?` (${days} days ago — consider exporting a fresh backup)`:''}</div>`;
     })()}
     <div class="g2c mb8">
       <button class="btn btns" style="width:100%" onclick="expData()">↓ Export JSON</button>
@@ -2799,10 +2661,10 @@ function vSettings(c){
     <button class="btn btns btnd mb8" style="width:100%" onclick="wipeSessions()">${_wipeArmed?'⚠ Confirm — Wipe Sessions?':'✕ Wipe Sessions (keep library)'}</button>
     <button class="btn btns btnd" style="width:100%" onclick="resetData()">${_resetArmed?'⚠ Confirm — Reset ALL Data?':'✕ Reset All Data'}</button>
   </div>
-  <div style="text-align:center;padding:20px;color:var(--t3)">
+  <div style="text-align:center;padding:20px;color:var(--t2)">
     <div style="font-family:var(--fn);font-size:20px;font-weight:800;letter-spacing:.12em;color:var(--gd);margin-bottom:4px">APEX FORTIS</div>
-    <div style="font-size:12px;font-family:var(--fn);letter-spacing:.06em;line-height:1.6">Version 3.0 &nbsp;·&nbsp; Built for Strength Athletes<br><span style="color:var(--t3)">Surviving the Zombie Apocalypse</span></div>
-    <div style="font-size:11px;margin-top:4px;color:var(--t3)">${S.lib.length} exercises · ${S.cycles.length} cycles · ${S.prs.length} PRs</div>
+    <div style="font-size:12px;font-family:var(--fn);letter-spacing:.06em;line-height:1.6">Version 3.0 &nbsp;·&nbsp; Built for Strength Athletes<br><span style="color:var(--t2)">Surviving the Zombie Apocalypse</span></div>
+    <div style="font-size:11px;margin-top:4px;color:var(--t2)">${S.lib.length} exercises · ${S.cycles.length} cycles · ${S.prs.length} PRs</div>
   </div>`;
 }
 function setUnit(newUnit){
