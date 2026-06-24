@@ -1927,6 +1927,16 @@ let exCollapsed={};
 function toggleExCollapse(exId,e){e&&e.stopPropagation();exCollapsed[exId]=!exCollapsed[exId];rv();}
 let exNotesOpen={};
 function toggleExNotes(exId){exNotesOpen[exId]=!exNotesOpen[exId];rv();}
+let exDelPending={};
+function removeExFromSession(cid,w,d,exId){
+  if(!exDelPending[exId]){exDelPending[exId]=true;rv();return;}
+  const c=S.cycles.find(x=>x.id===cid);if(!c)return;
+  const sess=c.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
+  sess.exercises=sess.exercises.filter(e=>e.id!==exId);
+  sess.exercises.forEach((e,i)=>e.sortOrder=i);
+  delete exDelPending[exId];
+  save();rv();
+}
 function notesPanel(ex,cid,w,d){
   if(!exNotesOpen[ex.id])return'';
   const sets=ex.sets||[];
@@ -1995,7 +2005,7 @@ function rEx(ex,sess,cid){
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${exCollapsed[ex.id]?'Expand':'Collapse'}">${exCollapsed[ex.id]?'▸':'▾'}</button>
         </div>
       </div>
-      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}${metricBadge(exMetric)}${orm?`<span class="orm-bdg">≈1RM ${orm}${uw()}</span>`:''}</div>
+      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}${metricBadge(exMetric)}<span id="orm-${ex.id}" class="orm-bdg" style="${orm?'':'display:none'}">≈1RM ${orm||''}${uw()}</span></div>
     </div>
     <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
     ${notesPanel(ex,cid,sess.week,sess.day)}`;
@@ -2048,6 +2058,9 @@ function rEx(ex,sess,cid){
   });
   h+=`<button class="btn btns" style="width:100%;margin-top:4px" onclick="addSet('${cid}',${sess.week},${sess.day},'${ex.id}')">+ Add Set</button>
   ${isAcc?`<button class="btn btns" style="width:100%;margin-top:4px;color:var(--gd);border-color:var(--gd)" onclick="openSupersetPicker('${cid}',${sess.week},${sess.day},'${ex.id}')">⊕ Add Superset Partner</button>`:''}
+  <button class="btn btns" style="width:100%;margin-top:8px;${exDelPending[ex.id]?'color:#e06060;border-color:#c04040':''}" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">
+    ${exDelPending[ex.id]?'⚠ Confirm Remove?':'− Remove Exercise'}
+  </button>
   </div></div>`;
   return h;
 }
@@ -2138,6 +2151,9 @@ function rSSEx(ex,sess,cid){
     <button class="pr-btn" title="Log A as PR" onclick="logSetAsPR('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${ex.sets.length-1})">🏆</button>
   </div>
   <button class="btn btns" style="width:100%;margin-top:4px" onclick="addSet('${cid}',${sess.week},${sess.day},'${ex.id}')">+ Add Set (A + B)</button>
+  <button class="btn btns" style="width:100%;margin-top:8px;${exDelPending[ex.id]?'color:#e06060;border-color:#c04040':''}" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">
+    ${exDelPending[ex.id]?'⚠ Confirm Remove?':'− Remove Exercise'}
+  </button>
   </div></div>`;
   return h;
 }
@@ -2188,7 +2204,18 @@ function gEx(cid,w,d,eid){
   const s=c.sessions.find(s=>s.week===w&&s.day===d);if(!s)return null;
   return s.exercises.find(e=>e.id===eid);
 }
-function upd(cid,w,d,eid,si,f,v){const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;ex.sets[si][f]=v;save();}
+function refreshOrm(cid,w,d,eid){
+  const ex=gEx(cid,w,d,eid);if(!ex||ex.metric&&ex.metric!=='reps')return;
+  const badge=document.getElementById('orm-'+eid);if(!badge)return;
+  const best=getBest1RM(ex.libId);
+  if(best){badge.textContent='≈1RM '+best+uw();badge.style.display='';}
+  else badge.style.display='none';
+}
+function upd(cid,w,d,eid,si,f,v){
+  const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
+  ex.sets[si][f]=v;save();
+  if(f==='weight'||f==='reps')refreshOrm(cid,w,d,eid);
+}
 function prCheck(name,cid,w,d,eid,si){
   const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
   const s=ex.sets[si];if(s.failed)return;
