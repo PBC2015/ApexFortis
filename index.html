@@ -1377,7 +1377,7 @@ function vCyc(c){
     <div class="prog-bar"><div class="prog-fill" style="width:${Math.round(cyc.sessions.filter(s=>s.done).length/cyc.sessions.length*100)}%"></div></div>
     <div style="font-size:11px;color:var(--t2);margin-top:4px;font-family:var(--fn)">${cyc.sessions.filter(s=>s.done).length}/${cyc.sessions.length} sessions complete</div>
   </div>`:''}
-  ${S.cycles.length>1?`<div class="lbl mb8">History</div>${[...S.cycles].reverse().slice(1).map(cc=>{
+  ${S.cycles.length>1?`<div class="lbl mb8">History</div>${[...S.cycles].reverse().filter(cc=>cc.id!==S.cid).map(cc=>{
     const isPending=cycDelPending===cc.id;
     return`<div class="card-i" style="display:flex;align-items:center;gap:10px${isPending?';border-color:#c04040;background:rgba(160,40,40,.07)':''}">
       <div style="flex:1">
