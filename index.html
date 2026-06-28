@@ -567,15 +567,12 @@ function doCustomT(){const v=document.getElementById('ctm')?.value;if(v){startTi
 
 // ─── PROGRESSIVE TARGET ───────────────────────────────────────────────────────
 function rpeJump(kg,reps,rpe){
-  // Returns {kg, reps, note} based on previous RPE
-  if(!rpe||rpe<=0)return{kg:kg+2.5,reps,note:'no RPE logged → +2.5kg'};
-  const r=parseFloat(rpe);
-  if(r<=6.5)return{kg:kg+7.5,reps,note:`RPE ${r} → +7.5kg (lots of room)`};
-  if(r<=7.5)return{kg:kg+5,reps,note:`RPE ${r} → +5kg (good room)`};
-  if(r<=8.5)return{kg:kg+2.5,reps,note:`RPE ${r} → +2.5kg (on track)`};
-  if(r<=9)return{kg,reps:reps+1,note:`RPE ${r} → hold, +1 rep (near max)`};
-  if(r<=9.5)return{kg,reps,note:`RPE ${r} → hold weight (at max)`};
-  return{kg:kg-2.5,reps:reps+1,note:`RPE ${r} → back off -2.5kg (over max)`};
+  if(!rpe||parseFloat(rpe)<=0)return{kg:kg+2.5,reps,note:'no RPE logged → +2.5kg'};
+  const band=Math.min(10,Math.max(7,Math.ceil(parseFloat(rpe))));
+  const jumps={7:7.5,8:5,9:2.5,10:0};
+  const add=jumps[band]??2.5;
+  const note=add>0?`RPE ${rpe} → +${add}kg`:`RPE ${rpe} → same weight`;
+  return{kg:kg+add,reps,note};
 }
 function getTgt(libId,cid,week,day){
   const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return null;
@@ -591,7 +588,7 @@ function getTgt(libId,cid,week,day){
     const exIsPPS=(ex.weightMode||'kg')==='pps';
     effSets(ex).filter(st=>parseFloat(st.weight)>0&&!st.failed).forEach(st=>{
       const kg=exIsPPS?parseFloat(st.weight)*40:parseFloat(st.weight);
-      hist.push({kg,reps:parseInt(st.reps)||0,rpe:parseFloat(st.rpe)||0,sets:st.sets||'',equipment:st.equipment||'',notes:st.notes||''});
+      hist.push({kg,reps:parseInt(st.reps)||0,rpe:parseFloat(st.rpe)||0,sets:st.sets||'',equipment:st.equipment||'',notes:st.notes||'',rest:st.rest||''});
     });
   }
   cyc.sessions.forEach(s=>{if(s.week===week&&s.day===day)return;(s.exercises||[]).filter(e=>e.libId===libId).forEach(ex=>extract(ex,s,cid));});
@@ -604,15 +601,23 @@ function getTgt(libId,cid,week,day){
   const suffix=isPPS?' PPS':'';
   if(isDeload(cid,week)){
     const dlKg=best.kg*0.85;
-    return{kg:toDisplay(dlKg),reps:best.reps+2,pKg:toDisplay(best.kg),pReps:best.reps,pRpe:best.rpe,pSets:best.sets,pEquipment:best.equipment,pNotes:best.notes,note:'deload 85%',isDeload:true,suffix};
+    return{kg:toDisplay(dlKg),reps:best.reps+2,pKg:toDisplay(best.kg),pReps:best.reps,pRpe:best.rpe,pSets:best.sets,pEquipment:best.equipment,pNotes:best.notes,pRest:best.rest,note:'deload 85%',isDeload:true,suffix};
   }
   const adj=rpeJump(best.kg,best.reps,best.rpe);
-  return{kg:toDisplay(adj.kg),reps:adj.reps,pKg:toDisplay(best.kg),pReps:best.reps,pRpe:best.rpe,pSets:best.sets,pEquipment:best.equipment,pNotes:best.notes,note:adj.note,isDeload:false,suffix};
+  return{kg:toDisplay(adj.kg),reps:adj.reps,pKg:toDisplay(best.kg),pReps:best.reps,pRpe:best.rpe,pSets:best.sets,pEquipment:best.equipment,pNotes:best.notes,pRest:best.rest,note:adj.note,isDeload:false,suffix};
 }
-function applyTgt(cid,w,d,eid,kg,reps){
+let _lastTgt={};
+function cacheTgt(eid,tgt){_lastTgt[eid]=tgt;}
+function applyTgt(cid,w,d,eid){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
+  const tgt=_lastTgt[eid];if(!tgt)return;
   const s=ex.sets.find(x=>!x.weight)||ex.sets[0];
-  if(s){s.weight=String(kg);s.reps=String(reps);}
+  if(!s)return;
+  s.weight=String(tgt.kg);
+  s.reps=String(tgt.reps);
+  if(tgt.pSets)s.sets=String(tgt.pSets);
+  if(tgt.pRest)s.rest=String(tgt.pRest);
+  if(tgt.pNotes)s.notes=tgt.pNotes;
   save();rv();
 }
 
@@ -1768,7 +1773,30 @@ function togDone(cid,w,d){
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
   const s=c.sessions.find(s=>s.week===w&&s.day===d);if(!s)return;
   s.done=!s.done;if(s.done)s.missed=false;save();rv();
-  if(s.done){flashDone(cid,w,d);playDoneTone();}
+  if(s.done){
+    flashDone(cid,w,d);playDoneTone();
+    // Check if this was the last session in the cycle
+    const allDone=c.sessions.every(x=>x.done||x.missed);
+    if(allDone)setTimeout(()=>showCycleCompleteReminder(c.name||('Cycle '+(c.cycleNumber||1))),800);
+  }
+}
+function showCycleCompleteReminder(cycleName){
+  if(document.getElementById('cyc-complete-banner'))return;
+  const el=document.createElement('div');
+  el.id='cyc-complete-banner';
+  el.style.cssText='position:fixed;bottom:70px;left:12px;right:12px;background:#1a2e18;border:1px solid #3a6a30;border-radius:8px;padding:12px 14px;z-index:400;font-family:var(--fn);box-shadow:0 4px 16px rgba(0,0,0,.5)';
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+    <div>
+      <div style="font-size:13px;font-weight:800;color:#6dcc8a;letter-spacing:.04em;margin-bottom:3px">✓ ${cycleName} Complete</div>
+      <div style="font-size:12px;color:#9abf94;line-height:1.5">Export a backup now to protect your training data.</div>
+    </div>
+    <button onclick="document.getElementById('cyc-complete-banner').remove()" style="background:none;border:none;color:#4a7a44;font-size:18px;cursor:pointer;padding:0;flex-shrink:0;line-height:1">✕</button>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:10px">
+    <button onclick="expData();document.getElementById('cyc-complete-banner').remove()" style="flex:1;height:34px;background:#2a4a28;border:1px solid #3a6a30;border-radius:5px;color:#6dcc8a;font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.05em;cursor:pointer">↓ Export Backup</button>
+    <button onclick="document.getElementById('cyc-complete-banner').remove()" style="height:34px;padding:0 14px;background:none;border:1px solid #2a4a28;border-radius:5px;color:#4a7a44;font-family:var(--fn);font-size:12px;font-weight:700;cursor:pointer">Later</button>
+  </div>`;
+  document.querySelector('.app')?.appendChild(el);
 }
 function togMissed(cid,w,d){
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
@@ -2017,7 +2045,7 @@ function rEx(ex,sess,cid){
       <div class="tgt-p">${tgt.note}</div>
       <div style="color:var(--green);font-size:11px;margin-top:5px;line-height:1.5;font-family:var(--fn)">Last time: ${tgt.pKg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.pReps}${exMetric==='reps'?'r':exMetric==='metres'?'m':exMetric==='seconds'?'s':'min'}${tgt.pSets&&parseInt(tgt.pSets)>1?` × ${tgt.pSets} sets`:''}${tgt.pEquipment?` · ${tgt.pEquipment}`:''}${tgt.pNotes?`<br>“${tgt.pNotes}”`:''}</div>
     </div>
-    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}',${tgt.kg},${tgt.reps})">Apply</button>
+    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="cacheTgt('${ex.id}',tgt);applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}')">Apply</button>
   </div>`;
   h+=`<div class="lbl mb6">Equipment</div>
     <input class="ins mb12" value="${(ex.sets[0]||{}).equipment||''}" placeholder="Barbell, SSB, Chains…" oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',0,'equipment',this.value)">
@@ -2093,7 +2121,7 @@ function rSSEx(ex,sess,cid){
     <div class="tgt-body"><div class="tgt-t">${tgt.isDeload?'Deload Target':'Target (A)'}</div>
     <div class="tgt-v">${tgt.kg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.reps}r</div><div class="tgt-p">${tgt.note}</div>
     <div style="color:var(--green);font-size:11px;margin-top:5px;line-height:1.5;font-family:var(--fn)">Last time: ${tgt.pKg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.pReps}r${tgt.pSets&&parseInt(tgt.pSets)>1?` × ${tgt.pSets} sets`:''}${tgt.pEquipment?` · ${tgt.pEquipment}`:''}${tgt.pNotes?`<br>“${tgt.pNotes}”`:''}</div></div>
-    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}',${tgt.kg},${tgt.reps})">Apply</button>
+    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="cacheTgt('${ex.id}',tgt);applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}')">Apply</button>
   </div>`;
   // Column headers
   h+=`<div class="ss-grid">
@@ -2646,21 +2674,15 @@ function vSettings(c){
       Install Apex Fortis on your home screen for a full-screen, offline-capable experience.
     </div>
     <div style="background:var(--bg3);border:1px solid var(--b);border-radius:6px;padding:12px;margin-bottom:12px">
-      <div style="font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--g);margin-bottom:8px">Install on Android — Recommended</div>
+      <div style="font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--g);margin-bottom:8px">Install on Android — Chrome</div>
       ${[
-        'Download App File below (do this in Chrome browser, not the home screen app)',
-        'On any computer, go to drop.netlify.com',
-        'Drag ApexFortis.html onto the page — deploys in seconds, you get a free HTTPS URL',
-        'Open that URL on your Pixel in Chrome',
-        'Tap ⋮ → "Add to Home screen" or "Install app" → Add',
-        'The AF icon appears on your home screen — works offline, full screen'
+        'Tap the three-dot menu ⋮ in the top-right corner of Chrome',
+        'Select "Add to Home screen" or "Install app"',
+        'Tap Install — the Apex Fortis icon will appear on your home screen'
       ].map((s,i)=>`<div style="display:flex;gap:8px;padding:5px 0;font-family:var(--fn);font-size:13px;color:var(--t2);border-bottom:0.5px solid var(--b2);align-items:flex-start"><span style="color:var(--gd);font-weight:800;flex-shrink:0">${i+1}.</span><span>${s}</span></div>`).join('')}
       <div style="margin-top:8px;font-size:12px;color:var(--t2);font-family:var(--fn);line-height:1.6;background:rgba(201,168,76,.08);padding:8px;border-radius:6px;border:1px solid var(--gdk)">
-        Your data is baked into the downloaded file and loads automatically on first open.<br>
-        Re-deploy anytime after downloading an updated file to keep the app current.
+        Runs full-screen and works offline. Your data stays on-device and is never uploaded anywhere.
       </div>
-      <div style="margin-top:8px;font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">Alternative — Kiwi Browser</div>
-      <div style="font-size:12px;color:var(--t2);font-family:var(--fn);line-height:1.5">Install <b style="color:var(--t2)">Kiwi Browser</b> from the Play Store. Open the downloaded file in Kiwi → ⋮ → Add to Home screen. No computer needed.</div>
     </div>
     <button class="btnp" style="width:100%" onclick="dlApp()">↓ Download App File</button>
     <div style="font-size:11px;color:var(--t2);margin-top:8px;text-align:center;font-family:var(--fn);letter-spacing:.04em">
