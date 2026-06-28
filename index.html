@@ -40,7 +40,16 @@ body{color:var(--t);font-family:var(--fb);-webkit-font-smoothing:antialiased}
 .main{flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
 .view{animation:fi .15s ease}
 @keyframes fi{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
-@keyframes splLogoIn{from{transform:scale(0.3);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes celFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes celLogoIn{from{transform:scale(0.25);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes celPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@keyframes celBorder{to{stroke-dashoffset:0}}
+@keyframes celTrack{from{letter-spacing:0;opacity:0}to{letter-spacing:5px;opacity:1}}
+@keyframes celSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes celLine{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes celRing{0%{transform:scale(.5);opacity:.65}100%{transform:scale(3.2);opacity:0}}
+@keyframes celBtn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes celExit{to{opacity:0;transform:scale(1.05)}}
 @keyframes splHeartbeat{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
 @keyframes splTrackIn{from{letter-spacing:0px;opacity:0}to{letter-spacing:6px;opacity:1}}
 @keyframes splSubIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
@@ -1616,20 +1625,42 @@ function startNextCycle(cid){
   const prev=S.cycles.find(c=>c.id===cid);if(!prev)return;
   const cn=(prev.cycleNumber||1)+1;
   const id=uid();
-  const sessions=genCycle(prev.selIds,prev.weeks);
-  applyManualAdditions(sessions,prev.manualAdditions||[]);
-  applySupersetPairs(sessions,prev.supersetPairs||[]);
+
+  // Deep-copy previous cycle's sessions — same exercises, same order, same supersets
+  // All logged data is cleared; structure (exercise choice, role, order, supersets) is preserved
+  const sessions=prev.sessions.map(sess=>{
+    const idMap={};
+    const exercises=(sess.exercises||[]).map(ex=>{
+      const newId=uid();
+      idMap[ex.id]=newId;
+      return{id:newId,libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
+        role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
+        weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,sets:[mkSet()]};
+    });
+    // Re-map supersetWith using new IDs
+    exercises.forEach((ex,i)=>{
+      const orig=(sess.exercises||[])[i];
+      if(orig&&orig.supersetWith){
+        ex.supersetWith={id:uid(),libId:orig.supersetWith.libId,
+          name:orig.supersetWith.name,metric:orig.supersetWith.metric||'reps',
+          weightMode:orig.supersetWith.weightMode||'kg',sets:[mkSet()]};
+      }
+    });
+    return{week:sess.week,day:sess.day,type:sess.type,
+      done:false,missed:false,notes:'',isHomeGym:sess.isHomeGym||false,
+      ruckData:null,exercises};
+  });
+
   const baseName=(prev.name||'Block').replace(/\s*—\s*Cycle \d+$/,'').trim();
   const cyc={id,name:baseName+(cn>1?` — Cycle ${cn}`:''),
     rotationId:prev.rotationId||prev.id,cycleNumber:cn,
     startDate:new Date().toLocaleDateString('en-GB'),
     weeks:prev.weeks,trainDays:prev.trainDays||3,hasRuck:prev.hasRuck!==false,
-    homeGymDays:[...(prev.homeGymDays||[])],sessions,selIds:[...prev.selIds],
-    manualAdditions:JSON.parse(JSON.stringify(prev.manualAdditions||[])),
-    supersetPairs:JSON.parse(JSON.stringify(prev.supersetPairs||[]))
-  };
+    homeGymDays:[...(prev.homeGymDays||[])],sessions,
+    selIds:[...prev.selIds],manualAdditions:[],supersetPairs:[]};
   S.cycles.push(cyc);S.cid=cyc.id;S.wk=0;S.dy=0;
-  save();nav('train');notify(`Cycle ${cn} started!`);
+  save();nav('train');
+  setTimeout(()=>showCycleCompleteReminder(prev.name||('Cycle '+(prev.cycleNumber||1))),400);
 }
 function addExToSession(cid,w,d){
   const cyc=S.cycles.find(c=>c.id===cid);
@@ -1773,30 +1804,53 @@ function togDone(cid,w,d){
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
   const s=c.sessions.find(s=>s.week===w&&s.day===d);if(!s)return;
   s.done=!s.done;if(s.done)s.missed=false;save();rv();
-  if(s.done){
-    flashDone(cid,w,d);playDoneTone();
-    // Check if this was the last session in the cycle
-    const allDone=c.sessions.every(x=>x.done||x.missed);
-    if(allDone)setTimeout(()=>showCycleCompleteReminder(c.name||('Cycle '+(c.cycleNumber||1))),800);
-  }
+  if(s.done){flashDone(cid,w,d);playDoneTone();}
 }
 function showCycleCompleteReminder(cycleName){
-  if(document.getElementById('cyc-complete-banner'))return;
+  if(document.getElementById('cel-screen'))return;
+  const cyc=S.cycles.find(c=>c.name===cycleName||(('Cycle '+(c.cycleNumber||1))===cycleName));
+  const done=(cyc?.sessions||[]).filter(s=>s.done).length;
+  const total=(cyc?.sessions||[]).length;
+  const stats=total?`${done} / ${total}`:'';
   const el=document.createElement('div');
-  el.id='cyc-complete-banner';
-  el.style.cssText='position:fixed;bottom:70px;left:12px;right:12px;background:#1a2e18;border:1px solid #3a6a30;border-radius:8px;padding:12px 14px;z-index:400;font-family:var(--fn);box-shadow:0 4px 16px rgba(0,0,0,.5)';
-  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-    <div>
-      <div style="font-size:13px;font-weight:800;color:#6dcc8a;letter-spacing:.04em;margin-bottom:3px">✓ ${cycleName} Complete</div>
-      <div style="font-size:12px;color:#9abf94;line-height:1.5">Export a backup now to protect your training data.</div>
+  el.id='cel-screen';
+  el.style.cssText='position:fixed;inset:0;z-index:9990;background:#0c1828;display:flex;align-items:center;justify-content:center;animation:celFadeIn .4s ease both';
+  el.innerHTML=`
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;overflow:hidden">
+      <div style="position:absolute;width:96px;height:96px;border-radius:50%;border:1px solid rgba(201,168,76,.55);animation:celRing 2.4s ease-out infinite .5s"></div>
+      <div style="position:absolute;width:96px;height:96px;border-radius:50%;border:1px solid rgba(201,168,76,.4);animation:celRing 2.4s ease-out infinite 1.0s"></div>
+      <div style="position:absolute;width:96px;height:96px;border-radius:50%;border:1px solid rgba(201,168,76,.28);animation:celRing 2.4s ease-out infinite 1.5s"></div>
     </div>
-    <button onclick="document.getElementById('cyc-complete-banner').remove()" style="background:none;border:none;color:#4a7a44;font-size:18px;cursor:pointer;padding:0;flex-shrink:0;line-height:1">✕</button>
-  </div>
-  <div style="display:flex;gap:8px;margin-top:10px">
-    <button onclick="expData();document.getElementById('cyc-complete-banner').remove()" style="flex:1;height:34px;background:#2a4a28;border:1px solid #3a6a30;border-radius:5px;color:#6dcc8a;font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.05em;cursor:pointer">↓ Export Backup</button>
-    <button onclick="document.getElementById('cyc-complete-banner').remove()" style="height:34px;padding:0 14px;background:none;border:1px solid #2a4a28;border-radius:5px;color:#4a7a44;font-family:var(--fn);font-size:12px;font-weight:700;cursor:pointer">Later</button>
-  </div>`;
-  document.querySelector('.app')?.appendChild(el);
+    <div style="display:flex;flex-direction:column;align-items:center;gap:20px;padding:0 32px;width:100%;max-width:360px;position:relative;z-index:1">
+      <div style="width:92px;height:92px;border-radius:18px;display:flex;align-items:center;justify-content:center;position:relative;animation:celLogoIn .8s cubic-bezier(.2,.85,.3,1) both .3s,celPulse .4s ease-in-out both 1.2s">
+        <div style="position:absolute;inset:8px;border-radius:11px;border:1px solid rgba(201,168,76,.13)"></div>
+        <svg width="92" height="92" style="position:absolute;top:0;left:0" aria-hidden="true">
+          <rect x="1" y="1" width="90" height="90" rx="17" fill="none" stroke="rgba(201,168,76,.7)" stroke-width="1.5" stroke-dasharray="340" stroke-dashoffset="340" style="animation:celBorder 1s ease both .3s"/>
+        </svg>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-size:44px;font-weight:800;color:#c9a84c;letter-spacing:2px;line-height:1;position:relative;z-index:1">AF</span>
+      </div>
+      <div style="text-align:center">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:#d4b86a;animation:celTrack .7s ease both 1.5s;letter-spacing:5px">CYCLE COMPLETE</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:400;color:rgba(201,168,76,.45);letter-spacing:2px;margin-top:6px;animation:celSlide .5s ease both 2.0s">${cycleName}</div>
+      </div>
+      <div style="width:56px;height:1px;background:rgba(201,168,76,.28);transform-origin:center;animation:celLine .6s ease both 2.3s"></div>
+      ${stats?`<div style="text-align:center;animation:celSlide .5s ease both 2.6s">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:800;color:#d4b86a;letter-spacing:.04em">${stats}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;color:rgba(201,168,76,.4);letter-spacing:2px;text-transform:uppercase;margin-top:3px">Sessions Completed</div>
+      </div>`:''}
+      <div style="width:100%;animation:celBtn .5s ease both 3.6s">
+        <button onclick="expData();_dismissCel()" style="width:100%;height:48px;background:rgba(201,168,76,.1);border:1.5px solid rgba(201,168,76,.45);border-radius:8px;color:#c9a84c;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.06em;cursor:pointer">↓ Export Backup</button>
+        <div style="text-align:center;margin-top:12px">
+          <button onclick="_dismissCel()" style="background:none;border:none;color:rgba(201,168,76,.3);font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:1px;cursor:pointer">skip for now →</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+function _dismissCel(){
+  const el=document.getElementById('cel-screen');if(!el)return;
+  el.style.animation='celExit .4s ease both';
+  setTimeout(()=>el.remove(),420);
 }
 function togMissed(cid,w,d){
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
