@@ -555,7 +555,8 @@ function tickTM(){
 }
 function extT(s){if(TM.on||TM.end>Date.now()){TM.end+=s*1000;TM.dur+=s;}}
 function stopT(){if(TM.iv)clearInterval(TM.iv);TM.on=false;const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');}
-function startRest(cid,w,d,eid,si){const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;startTimer(parseRest(ex.sets[si].rest)||S.defRest||120,ex.name);}
+function updRestDefault(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.restDefault=v;save();}
+function startRest(cid,w,d,eid,si){const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;startTimer(parseRest(ex.sets[si].rest||ex.restDefault)||S.defRest||120,ex.name);}
 function quickTimer(s){startTimer(s,'Quick Rest');}
 function showTPanel(){
   document.getElementById('tpanel')?.remove();
@@ -693,18 +694,26 @@ function doSwap(cid,w,d,exId,nid){
 function closeOverlay(id,e){if(e&&e.target&&e.target.id!==id)return;document.getElementById(id)?.remove();}
 
 // ─── WEEK OVERVIEW ────────────────────────────────────────────────────────────
+function toggleWODay(d){
+  const ex=document.getElementById('woe-'+d),ic=document.getElementById('woi-'+d);
+  if(!ex)return;
+  const open=ex.style.display!=='none';
+  ex.style.display=open?'none':'';
+  if(ic)ic.textContent=open?'▸':'▾';
+}
+function navToDay(d){S.dy=d;save();closeOverlay('woov');rv();}
 function showWeekOverview(){
   const cyc=S.cycles.find(c=>c.id===S.cid);if(!cyc)return;
   const ws=cyc.sessions.filter(s=>s.week===S.wk).sort((a,b)=>a.day-b.day);
   const dl=isDeload(S.cid,S.wk);
   const rows=ws.map(s=>{
-    const sv=s.type!=='ruck'?s.exercises.filter(e=>MAIN_SKILLS.has(e.skill)).reduce((t,e)=>t+exVol(e),0):0;
+    const sv=s.type!=='ruck'?s.exercises.reduce((t,e)=>t+exVol(e),0):0;
     const vsv=sv>0?vTonnes(sv):'';
     const tl={long:'Long Session',short:'Short Session',full:'Full Session',ruck:'Saturday Ruck'}[s.type]||s.type;
     let exList='';
     if(s.type==='ruck'){
-      exList=`<div style="font-family:var(--fn);font-size:12px;color:var(--t2)">${s.ruckData?.distance?`${s.ruckData.distance}${ruDist()} · ${s.ruckData.weight||'?'}${uw()}`:'Not yet logged'}</div>`;
-    } else {
+      exList=`<div style="font-family:var(--fn);font-size:12px;color:var(--t2);padding:4px 0">${s.ruckData?.distance?`${s.ruckData.distance}${ruDist()} · ${s.ruckData.weight||'?'}${uw()}`:'Not yet logged'}</div>`;
+    }else{
       const sorted=[...s.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
       exList=sorted.map(e=>{
         const badge=e.skill==='Accessories'?cb(e.category):sb(e.skill);
@@ -716,15 +725,19 @@ function showWeekOverview(){
         </div>`;
       }).join('');
     }
-    return`<div class="wo-sess ${s.day===S.dy?'cur':''}" onclick="navToDay(${s.day})">
-      <div class="fbet mb6">
+    return`<div class="wo-sess ${s.day===S.dy?'cur':''}" onclick="toggleWODay(${s.day})">
+      <div class="fbet">
         <span class="bdg ${s.type==='ruck'?'bruck':s.type==='short'?'bde':'bme'}">${tl}</span>
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px">
           ${vsv?`<span style="font-family:var(--fn);font-size:11px;color:var(--t2)">${vsv}</span>`:''}
           <span style="color:${s.done?'var(--green)':'var(--t2)'};font-size:18px">${s.done?'✓':'○'}</span>
+          <span id="woi-${s.day}" style="font-size:19px;color:var(--t2)">▸</span>
         </div>
       </div>
-      ${exList}
+      <div id="woe-${s.day}" style="display:none;margin-top:6px">
+        ${exList}
+        <button onclick="event.stopPropagation();navToDay(${s.day})" style="width:100%;margin-top:8px;height:36px;background:var(--bg4);border:1px solid var(--b2);border-radius:5px;color:var(--t2);font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer">→ Open Session</button>
+      </div>
     </div>`;
   }).join('');
   document.querySelector('.app').insertAdjacentHTML('beforeend',
@@ -741,7 +754,6 @@ function showWeekOverview(){
       </div>
     </div>`);
 }
-function navToDay(d){S.dy=d;save();closeOverlay('woov');rv();}
 
 // ─── SAMPLE EXERCISES ─────────────────────────────────────────────────────────
 const SAMPLES=[
@@ -971,7 +983,7 @@ function setWMode(cid,w,d,exId){
 }
 function mkEx(e){
   const metric=e.metric||'reps';
-  return{id:uid(),libId:e.id,name:e.name,skill:e.skill,focus:e.focus,role:e.role||'',category:e.category||'',metric,sets:[mkSet()],weightMode:'kg'};
+  return{id:uid(),libId:e.id,name:e.name,skill:e.skill,focus:e.focus,role:e.role||'',category:e.category||'',metric,sets:[mkSet()],weightMode:'kg',restDefault:''};
 }
 function autofill(cyc,prev){
   if(!prev)return;
@@ -1049,7 +1061,12 @@ function render(){
   }
   rv();
 }
-function nav(t){S.tab=t;save();render();}
+function nav(t){
+  // Clear any pending destructive confirms when leaving Train tab
+  Object.keys(exDelTimers||{}).forEach(id=>clearTimeout(exDelTimers[id]));
+  exDelPending={};exDelTimers={};
+  S.tab=t;save();render();
+}
 function rv(){
   const c=document.getElementById('mc');if(!c)return;
   ({lib:vLib,cyc:vCyc,train:vTrain,stats:vStats,set:vSettings}[S.tab]||vLib)(c);
@@ -1635,7 +1652,8 @@ function startNextCycle(cid){
       idMap[ex.id]=newId;
       return{id:newId,libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
         role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
-        weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,sets:[mkSet()]};
+        weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
+        restDefault:ex.restDefault||'',sets:[mkSet()]};
     });
     // Re-map supersetWith using new IDs
     exercises.forEach((ex,i)=>{
@@ -2007,39 +2025,23 @@ function rSess(sess,cid){
 
 let exCollapsed={};
 function toggleExCollapse(exId,e){e&&e.stopPropagation();exCollapsed[exId]=!exCollapsed[exId];rv();}
-let exNotesOpen={};
-function toggleExNotes(exId){exNotesOpen[exId]=!exNotesOpen[exId];rv();}
 let exDelPending={};
+let exDelTimers={};
+function clearExDel(exId){clearTimeout(exDelTimers[exId]);delete exDelPending[exId];delete exDelTimers[exId];rv();}
 function removeExFromSession(cid,w,d,exId){
-  if(!exDelPending[exId]){exDelPending[exId]=true;rv();return;}
+  if(!exDelPending[exId]){
+    exDelPending[exId]=true;
+    exDelTimers[exId]=setTimeout(()=>clearExDel(exId),3000);
+    rv();return;
+  }
+  clearTimeout(exDelTimers[exId]);
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
   const sess=c.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
   sess.exercises=sess.exercises.filter(e=>e.id!==exId);
   sess.exercises.forEach((e,i)=>e.sortOrder=i);
-  delete exDelPending[exId];
+  delete exDelPending[exId];delete exDelTimers[exId];
   save();rv();
 }
-function notesPanel(ex,cid,w,d){
-  if(!exNotesOpen[ex.id])return'';
-  const sets=ex.sets||[];
-  let h=`<div class="card-i mb8" style="background:rgba(255,255,255,.02);border-color:var(--gd)">
-    <div class="lbl mb6">📝 Set Notes — ${ex.name}</div>`;
-  sets.forEach((s,si)=>{
-    const tag=ex.wuMode?(si===ex.topSetIdx?' · Top Set':(ex.topSetIdx!=null&&si>ex.topSetIdx?' · Back-off':(ex.topSetIdx!=null&&si<ex.topSetIdx?' · Attempt':''))):'';
-    h+=`<div class="sf mb6"><label>Set ${si+1}${tag}${s.weight?` — ${s.weight}${wLabel(ex)}${s.reps?' × '+s.reps:''}`:''}</label>
-      <input value="${s.notes||''}" placeholder="Add note for this set…" style="${failStyle(s)}" oninput="upd('${cid}',${w},${d},'${ex.id}',${si},'notes',this.value)"></div>`;
-  });
-  if(ex.supersetWith){
-    h+=`<div class="lbl mb6 mt8" style="color:var(--gd)">B · ${ex.supersetWith.name}</div>`;
-    (ex.supersetWith.sets||[]).forEach((s,si)=>{
-      h+=`<div class="sf mb6"><label>Set ${si+1}${s.weight?` — ${s.weight}${wLabel(ex.supersetWith)}${s.reps?' × '+s.reps:''}`:''}</label>
-        <input value="${s.notes||''}" placeholder="Add note for this set…" oninput="updSS('${cid}',${w},${d},'${ex.id}',${si},'notes',this.value)"></div>`;
-    });
-  }
-  h+=`</div>`;
-  return h;
-}
-
 
 function moveEx(cid,w,d,exId,dir){
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
@@ -2079,7 +2081,7 @@ function rEx(ex,sess,cid){
     <div class="exbh">
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
-        <div style="cursor:pointer;flex:1" onclick="toggleExNotes('${ex.id}')"><div class="exbn">${ex.name} <span style="font-size:11px;color:var(--t2)">${exNotesOpen[ex.id]?'▾':'▸'}</span></div><div class="exbr">${role}</div></div>
+        <div style="flex:1"><div class="exbn">${ex.name}</div><div class="exbr">${role}</div></div>
         <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
           ${isMainLift?`<button class="sw-btn" onclick="toggleFocus('${cid}',${sess.week},${sess.day},'${ex.id}')" title="ME/DE">${ex.focus==='Max Effort'?'ME':'DE'}</button>`:''}
           <button class="sw-btn" title="Switch weight label" onclick="setWMode('${cid}',${sess.week},${sess.day},'${ex.id}')">${ex.weightMode||'kg'}</button>
@@ -2090,18 +2092,21 @@ function rEx(ex,sess,cid){
       <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}${metricBadge(exMetric)}<span id="orm-${ex.id}" class="orm-bdg" style="${orm?'':'display:none'}">≈1RM ${orm||''}${uw()}</span></div>
     </div>
     <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
-    ${notesPanel(ex,cid,sess.week,sess.day)}`;
-  if(tgt)h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
+`;
+  if(tgt){cacheTgt(ex.id,tgt);h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
     <span class="tgt-icon" style="${tgt.isDeload?'color:var(--g)':''}">${tgt.isDeload?'↓':'↑'}</span>
     <div class="tgt-body">
       <div class="tgt-t">${tgt.isDeload?'Deload Target':'Suggested Target'}</div>
       <div class="tgt-v">${tgt.kg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.reps}${exMetric==='reps'?'r':exMetric==='metres'?'m':exMetric==='seconds'?'s':'min'}</div>
       <div class="tgt-p">${tgt.note}</div>
-      <div style="color:var(--green);font-size:11px;margin-top:5px;line-height:1.5;font-family:var(--fn)">Last time: ${tgt.pKg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.pReps}${exMetric==='reps'?'r':exMetric==='metres'?'m':exMetric==='seconds'?'s':'min'}${tgt.pSets&&parseInt(tgt.pSets)>1?` × ${tgt.pSets} sets`:''}${tgt.pEquipment?` · ${tgt.pEquipment}`:''}${tgt.pNotes?`<br>“${tgt.pNotes}”`:''}</div>
+      <div style="color:var(--green);font-size:11px;margin-top:5px;line-height:1.5;font-family:var(--fn)">Last time: ${tgt.pKg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.pReps}${exMetric==='reps'?'r':exMetric==='metres'?'m':exMetric==='seconds'?'s':'min'}${tgt.pRpe?` @ RPE ${tgt.pRpe}`:''}${tgt.pSets&&parseInt(tgt.pSets)>1?` × ${tgt.pSets} sets`:''}${tgt.pEquipment?` · ${tgt.pEquipment}`:''}${tgt.pNotes?`<br>“${tgt.pNotes}”`:''}</div>
     </div>
-    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="cacheTgt('${ex.id}',tgt);applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}')">Apply</button>
+    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}')">Apply</button>
   </div>`;
-  h+=`<div class="lbl mb6">Equipment</div>
+  }
+  h+=`<div class="lbl mb6">Default Rest</div>
+    <input class="ins mb12" style="max-width:140px" value="${ex.restDefault||''}" placeholder="${fmtS(S.defRest||120)} (global)" oninput="updRestDefault('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
+    <div class="lbl mb6">Equipment</div>
     <input class="ins mb12" value="${(ex.sets[0]||{}).equipment||''}" placeholder="Barbell, SSB, Chains…" oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',0,'equipment',this.value)">
     <div class="lbl mb6">Sets</div>`;
   ex.sets.forEach((s,si)=>{
@@ -2140,9 +2145,12 @@ function rEx(ex,sess,cid){
   });
   h+=`<button class="btn btns" style="width:100%;margin-top:4px" onclick="addSet('${cid}',${sess.week},${sess.day},'${ex.id}')">+ Add Set</button>
   ${isAcc?`<button class="btn btns" style="width:100%;margin-top:4px;color:var(--gd);border-color:var(--gd)" onclick="openSupersetPicker('${cid}',${sess.week},${sess.day},'${ex.id}')">⊕ Add Superset Partner</button>`:''}
-  <button class="btn btns" style="width:100%;margin-top:8px;${exDelPending[ex.id]?'color:#e06060;border-color:#c04040':''}" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">
-    ${exDelPending[ex.id]?'⚠ Confirm Remove?':'− Remove Exercise'}
-  </button>
+  ${exDelPending[ex.id]
+    ?`<div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btns" style="flex:1;color:#e06060;border-color:#c04040" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">⚠ Yes, Remove</button>
+        <button class="btn btns" style="flex:1" onclick="clearExDel('${ex.id}')">No</button>
+      </div>`
+    :`<button class="btn btns" style="width:100%;margin-top:8px" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">− Remove Exercise</button>`}
   </div></div>`;
   return h;
 }
@@ -2156,8 +2164,8 @@ function rSSEx(ex,sess,cid){
     <div class="exbh">
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
-        <div style="cursor:pointer;flex:1" onclick="toggleExNotes('${ex.id}')">
-          <div class="exbn"><span style="color:var(--g2)">A</span> ${ex.name} <span style="color:var(--t2);font-size:14px">⊕</span> <span style="color:var(--gd)">B</span> ${ss.name} <span style="font-size:11px;color:var(--t2)">${exNotesOpen[ex.id]?'▾':'▸'}</span></div>
+        <div style="flex:1">
+          <div class="exbn"><span style="color:var(--g2)">A</span> ${ex.name} <span style="color:var(--t2);font-size:14px">⊕</span> <span style="color:var(--gd)">B</span> ${ss.name}</div>
           <div class="exbr">Superset</div>
         </div>
         <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
@@ -2169,14 +2177,15 @@ function rSSEx(ex,sess,cid){
       </div>
     </div>
     <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
-    ${notesPanel(ex,cid,sess.week,sess.day)}`;
-  if(tgt)h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
+`;
+  if(tgt){cacheTgt(ex.id,tgt);h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
     <span class="tgt-icon" style="${tgt.isDeload?'color:var(--g)':''}">${tgt.isDeload?'↓':'↑'}</span>
     <div class="tgt-body"><div class="tgt-t">${tgt.isDeload?'Deload Target':'Target (A)'}</div>
     <div class="tgt-v">${tgt.kg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.reps}r</div><div class="tgt-p">${tgt.note}</div>
-    <div style="color:var(--green);font-size:11px;margin-top:5px;line-height:1.5;font-family:var(--fn)">Last time: ${tgt.pKg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.pReps}r${tgt.pSets&&parseInt(tgt.pSets)>1?` × ${tgt.pSets} sets`:''}${tgt.pEquipment?` · ${tgt.pEquipment}`:''}${tgt.pNotes?`<br>“${tgt.pNotes}”`:''}</div></div>
-    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="cacheTgt('${ex.id}',tgt);applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}')">Apply</button>
+    <div style="color:var(--green);font-size:11px;margin-top:5px;line-height:1.5;font-family:var(--fn)">Last time: ${tgt.pKg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.pReps}r${tgt.pRpe?` @ RPE ${tgt.pRpe}`:''}${tgt.pSets&&parseInt(tgt.pSets)>1?` × ${tgt.pSets} sets`:''}${tgt.pEquipment?` · ${tgt.pEquipment}`:''}${tgt.pNotes?`<br>“${tgt.pNotes}”`:''}</div></div>
+    <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}')">Apply</button>
   </div>`;
+  }
   // Column headers
   h+=`<div class="ss-grid">
     <div class="ss-col-hdr ss-a" style="border-color:var(--g2)">A · ${ex.name}</div>
@@ -2233,9 +2242,12 @@ function rSSEx(ex,sess,cid){
     <button class="pr-btn" title="Log A as PR" onclick="logSetAsPR('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${ex.sets.length-1})">🏆</button>
   </div>
   <button class="btn btns" style="width:100%;margin-top:4px" onclick="addSet('${cid}',${sess.week},${sess.day},'${ex.id}')">+ Add Set (A + B)</button>
-  <button class="btn btns" style="width:100%;margin-top:8px;${exDelPending[ex.id]?'color:#e06060;border-color:#c04040':''}" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">
-    ${exDelPending[ex.id]?'⚠ Confirm Remove?':'− Remove Exercise'}
-  </button>
+  ${exDelPending[ex.id]
+    ?`<div style="display:flex;gap:6px;margin-top:8px">
+        <button class="btn btns" style="flex:1;color:#e06060;border-color:#c04040" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">⚠ Yes, Remove</button>
+        <button class="btn btns" style="flex:1" onclick="clearExDel('${ex.id}')">No</button>
+      </div>`
+    :`<button class="btn btns" style="width:100%;margin-top:8px" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">− Remove Exercise</button>`}
   </div></div>`;
   return h;
 }
@@ -2346,7 +2358,7 @@ function vStats(c){
   const cyc=S.cycles.find(x=>x.id===S.cid);
   if(!cyc){c.innerHTML=`<div class="empty">▦<h3>No Active Cycle</h3><p>Generate a cycle to see stats</p></div>`;return;}
   if(!S.stTab||S.stTab==='rpe')S.stTab='over';
-  const tabs=[['over','Overview'],['vol','Volume'],['cycle','Cycle'],['ruck','Ruck'],['orm','Est 1RM'],['prs','PRs']];
+  const tabs=[['over','Overview'],['vol','Volume'],['cycle','Cycle'],['prog','Progress'],['ruck','Ruck'],['orm','Est 1RM'],['prs','PRs']];
   c.innerHTML=`<div class="stitle">Stats</div>
   <div class="stabs">${tabs.map(([k,l])=>`<div class="stab ${S.stTab===k?'on':''}" onclick="setStT('${k}')">${l}</div>`).join('')}</div>
   <div id="stcont"></div>`;
@@ -2358,6 +2370,7 @@ function stRender(cyc){
   if(S.stTab==='over')stOver(el,cyc);
   else if(S.stTab==='vol')stVol(el,cyc);
   else if(S.stTab==='cycle')stCycle(el,cyc);
+  else if(S.stTab==='prog')stProgress(el);
   else if(S.stTab==='ruck')stRuck(el,cyc);
   else if(S.stTab==='orm')stORM(el);
   else if(S.stTab==='prs')vPRs(el);
@@ -2437,6 +2450,61 @@ function rVChart(name,cyc){
   el.innerHTML=`<div class="scrollx"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
     <line x1="10" y1="${pT+cH}" x2="${W-10}" y2="${pT+cH}" stroke="var(--b)" stroke-width="1"/>${bars}
   </svg></div>`;
+}
+function setStProg(n){S.stProgEx=n;save();rv();}
+function stProgress(el){
+  // Build exercise map: name → [{cycleNum, cycleName, bestKg}]
+  const exMap={};
+  S.cycles.forEach(c=>{
+    const cycName=c.name||('C'+(c.cycleNumber||1));
+    const cycNum=c.cycleNumber||1;
+    const seen={};
+    c.sessions.forEach(s=>(s.exercises||[]).forEach(e=>{
+      if(e.role!=='main'&&e.role!=='main_push')return;
+      if(e.metric&&e.metric!=='reps')return;
+      let best=0;
+      (e.sets||[]).forEach(st=>{const kg=parseFloat(st.weight)||0;if(kg>best)best=kg;});
+      if(!best)return;
+      if(seen[e.name]&&seen[e.name]>=best)return;
+      seen[e.name]=best;
+      if(!exMap[e.name])exMap[e.name]=[];
+      const existing=exMap[e.name].find(d=>d.cycleNum===cycNum);
+      if(existing){if(best>existing.bestKg)existing.bestKg=best;}
+      else exMap[e.name].push({cycleNum:cycNum,cycleName:cycName,bestKg:best});
+    }));
+  });
+  const exercises=Object.entries(exMap).filter(([,d])=>d.length>=2).sort((a,b)=>b[1].length-a[1].length);
+  if(!exercises.length){el.innerHTML=`<div class="chart-empty">Log the same main lift in 2+ cycles to see progression</div>`;return;}
+  const selName=S.stProgEx&&exercises.find(([n])=>n===S.stProgEx)?S.stProgEx:exercises[0][0];
+  const raw=exMap[selName].sort((a,b)=>a.cycleNum-b.cycleNum);
+  const maxKg=Math.max(...raw.map(d=>d.bestKg));
+  const minKg=Math.min(...raw.map(d=>d.bestKg));
+  const pad=(maxKg-minKg)*0.15||maxKg*0.1;
+  const yMin=Math.max(0,minKg-pad),yMax=maxKg+pad;
+  const W=Math.max(220,raw.length*72),H=140,pT=22,pB=30,pL=8,pR=8;
+  const cW=W-pL-pR,cH=H-pT-pB;
+  const pt=d=>({x:pL+(raw.length>1?(raw.indexOf(d)/(raw.length-1))*cW:cW/2),y:pT+cH-((yMax>yMin?(d.bestKg-yMin)/(yMax-yMin):0.5)*cH)});
+  const pts=raw.map(pt);
+  const linePath=pts.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');
+  const fillPath=linePath+` L${pts[pts.length-1].x.toFixed(1)},${(pT+cH)} L${pts[0].x.toFixed(1)},${(pT+cH)} Z`;
+  const dots=pts.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="var(--gd)" stroke="#0c1828" stroke-width="1.5"/>
+    <text x="${p.x.toFixed(1)}" y="${(p.y-9).toFixed(1)}" fill="var(--g2)" font-size="10" font-weight="700" text-anchor="middle" font-family="Barlow Condensed">${raw[i].bestKg}${uw()}</text>
+    <text x="${p.x.toFixed(1)}" y="${(H-pB+13).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${raw[i].cycleName.slice(0,10)}</text>`).join('');
+  const diff=raw[raw.length-1].bestKg-raw[0].bestKg;
+  const pct=raw[0].bestKg?Math.round(diff/raw[0].bestKg*100):0;
+  const trend=diff>0?`<span style="color:var(--green)">▲ +${Math.round(diff)}${uw()} (+${pct}%)</span>`:diff<0?`<span style="color:#e06060">▼ ${Math.round(diff)}${uw()} (${pct}%)</span>`:`<span style="color:var(--t2)">No change</span>`;
+  el.innerHTML=`<div class="card mb12">
+    <div class="lbl mb8">Weight Progression — Cycle by Cycle</div>
+    <select onchange="setStProg(this.value)" class="mb12">${exercises.map(([n])=>`<option value="${n}"${n===selName?' selected':''}>${n}</option>`).join('')}</select>
+    <div class="scrollx"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+      <defs><linearGradient id="pgrd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(201,168,76,.25)"/><stop offset="100%" stop-color="rgba(201,168,76,0)"/></linearGradient></defs>
+      <line x1="${pL}" y1="${pT+cH}" x2="${W-pR}" y2="${pT+cH}" stroke="var(--b)" stroke-width="1"/>
+      <path d="${fillPath}" fill="url(#pgrd)"/>
+      <path d="${linePath}" fill="none" stroke="var(--gd)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}
+    </svg></div>
+    <div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:6px">First → Latest: ${trend}</div>
+  </div>`;
 }
 function parseDuration(str){
   if(!str)return 0;
@@ -2758,8 +2826,8 @@ function vSettings(c){
       return`<div style="font-size:12px;color:${warn?'#e0a060':'var(--t2)'};font-family:var(--fn);margin-bottom:10px;${warn?'background:rgba(160,100,40,.1);padding:8px;border-radius:6px;border:1px solid #5a4010':''}">${warn?'⚠ ':''}Last exported: ${dateStr}${warn?` (${days} days ago — consider exporting a fresh backup)`:''}</div>`;
     })()}
     <div class="g2c mb8">
-      <button class="btn btns" style="width:100%" onclick="expData()">↓ Export JSON</button>
-      <label class="btn btns" style="width:100%;cursor:pointer">↓ Import JSON<input type="file" accept=".json" style="display:none" onchange="impData(event)"></label>
+      <button class="btn btns" style="width:100%" onclick="expData()">↓ Backup</button>
+      <label class="btn btns" style="width:100%;cursor:pointer">↑ Restore<input type="file" accept=".json" style="display:none" onchange="impData(event)"></label>
     </div>
     <button class="btn btns btnd mb8" style="width:100%" onclick="wipeSessions()">${_wipeArmed?'⚠ Confirm — Wipe Sessions?':'✕ Wipe Sessions (keep library)'}</button>
     <button class="btn btns btnd" style="width:100%" onclick="resetData()">${_resetArmed?'⚠ Confirm — Reset ALL Data?':'✕ Reset All Data'}</button>
@@ -2790,16 +2858,51 @@ function setUnit(newUnit){
 function setDefRest(s){S.defRest=s;save();rv();}
 function expData(){
   S.lastExport=new Date().toISOString();
+  const meta={exportedAt:S.lastExport,exportDate:new Date().toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),app:'Apex Fortis',cycles:S.cycles.length,prs:(S.prs||[]).length};
+  const payload=Object.assign({},S,{exportMeta:meta});
   const a=document.createElement('a');
-  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(S,null,2));
-  a.download='simplystrong-backup-'+new Date().toISOString().split('T')[0]+'.json';
-  a.click();save();notify('Exported!');rv();
+  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(payload,null,2));
+  a.download='apexfortis-backup-'+new Date().toISOString().split('T')[0]+'.json';
+  a.click();save();notify('Backup saved!');rv();
 }
+let _stagedImport=null;
 function impData(e){
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=ev=>{try{Object.assign(S,JSON.parse(ev.target.result));save();render();notify('Imported!');}catch(err){notify('Invalid file');}};
+  r.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      _stagedImport=data;
+      const meta=data.exportMeta;
+      const detail=meta?`${meta.exportDate||meta.exportedAt||''} · ${meta.cycles||'?'} cycles · ${meta.prs||'?'} PRs`:'No metadata available';
+      const el=document.createElement('div');
+      el.id='imp-confirm';
+      el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
+      el.innerHTML=`<div style="background:#0f1e30;border:1px solid #1d3248;border-radius:10px;padding:20px;max-width:320px;width:100%">
+        <div style="font-family:var(--fn);font-size:17px;font-weight:800;color:#d4b86a;margin-bottom:8px">Restore Backup?</div>
+        <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:6px">File: <b style="color:var(--t)">${f.name}</b></div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.5;margin-bottom:14px">${detail}</div>
+        <div style="font-size:12px;color:#e0a060;background:rgba(160,100,40,.1);border:1px solid #5a4010;border-radius:6px;padding:8px;margin-bottom:14px;line-height:1.5">⚠ This will replace all current data including cycles, sessions, and PRs.</div>
+        <div style="display:flex;gap:8px">
+          <button onclick="_confirmImport()" style="flex:1;height:42px;background:#2a1a1a;border:1px solid #c04040;border-radius:6px;color:#e06060;font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer">Replace All Data</button>
+          <button onclick="_cancelImport()" style="flex:1;height:42px;background:#0c1828;border:1px solid #253d57;border-radius:6px;color:var(--t2);font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+        </div>
+      </div>`;
+      document.body.appendChild(el);
+    }catch(err){notify('Invalid backup file');}
+  };
   r.readAsText(f);
+}
+function _confirmImport(){
+  if(!_stagedImport)return;
+  Object.assign(S,_stagedImport);
+  save();render();notify('Restored!');
+  _stagedImport=null;
+  document.getElementById('imp-confirm')?.remove();
+}
+function _cancelImport(){
+  _stagedImport=null;
+  document.getElementById('imp-confirm')?.remove();
 }
 
 // ─── PWA: DOWNLOAD APP FILE ───────────────────────────────────────────────────
