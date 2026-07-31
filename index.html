@@ -11,8 +11,8 @@
 <meta name="description" content="Apex Fortis — Conjugate Strength Training">
 <title>Apex Fortis</title>
 <link id="pwa-manifest" rel="manifest">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='90' fill='%230c1828'/%3E%3Crect x='14' y='14' width='484' height='484' rx='76' fill='none' stroke='%23c9a84c' stroke-width='11' opacity='.6'/%3E%3Ctext x='256' y='345' font-family='Arial Black%2CArial%2Csans-serif' font-size='265' font-weight='900' text-anchor='middle' fill='%23c9a84c'%3EAF%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='90' fill='%230c1828'/%3E%3Crect x='14' y='14' width='484' height='484' rx='76' fill='none' stroke='%23c9a84c' stroke-width='11' opacity='.6'/%3E%3Ctext x='256' y='345' font-family='Arial Black%2CArial%2Csans-serif' font-size='265' font-weight='900' text-anchor='middle' fill='%23c9a84c'%3EAF%3C/text%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='90' fill='%230c1828'/%3E%3Crect x='14' y='14' width='484' height='484' rx='76' fill='none' stroke='%23c9a84c' stroke-width='11' opacity='.6'/%3E%3Ctext x='256' y='390' font-family='Arial Black%2CArial%2Csans-serif' font-size='270' font-weight='900' text-anchor='middle' dominant-baseline='auto' fill='%23c9a84c'%3EAF%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='90' fill='%230c1828'/%3E%3Crect x='14' y='14' width='484' height='484' rx='76' fill='none' stroke='%23c9a84c' stroke-width='11' opacity='.6'/%3E%3Ctext x='256' y='390' font-family='Arial Black%2CArial%2Csans-serif' font-size='270' font-weight='900' text-anchor='middle' dominant-baseline='auto' fill='%23c9a84c'%3EAF%3C/text%3E%3C/svg%3E">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
@@ -3072,21 +3072,28 @@ function setupPWA(){
   // ── Generate AF logo icon via Canvas ──────────────────────────────────────
   function drawIcon(size){
     const cv=document.createElement('canvas');cv.width=cv.height=size;
-    const ctx=cv.getContext('2d');const r=size*0.18;
+    const ctx=cv.getContext('2d');
+    const r=size*0.18;
     // Navy rounded background
     ctx.fillStyle='#0c1828';
     ctx.beginPath();
-    ctx.moveTo(r,0);ctx.lineTo(size-r,0);ctx.arcTo(size,0,size,r,r);
-    ctx.lineTo(size,size-r);ctx.arcTo(size,size,size-r,size,r);
-    ctx.lineTo(r,size);ctx.arcTo(0,size,0,size-r,r);
-    ctx.lineTo(0,r);ctx.arcTo(0,0,r,0,r);ctx.closePath();ctx.fill();
+    ctx.moveTo(r,0);ctx.lineTo(size-r,0);
+    ctx.quadraticCurveTo(size,0,size,r);
+    ctx.lineTo(size,size-r);
+    ctx.quadraticCurveTo(size,size,size-r,size);
+    ctx.lineTo(r,size);
+    ctx.quadraticCurveTo(0,size,0,size-r);
+    ctx.lineTo(0,r);
+    ctx.quadraticCurveTo(0,0,r,0);
+    ctx.closePath();ctx.fill();
     // Thin gold border
     ctx.strokeStyle='rgba(201,168,76,0.55)';ctx.lineWidth=Math.max(2,size*0.022);ctx.stroke();
-    // "AF" — bold condensed gold
+    // "AF" — use system bold fonts only (Barlow may not be loaded yet)
     ctx.fillStyle='#c9a84c';
-    ctx.font=`900 ${Math.round(size*0.5)}px "Barlow Condensed","Arial Narrow",Arial,sans-serif`;
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.letterSpacing=`${size*0.015}px`;
-    ctx.fillText('AF',size/2,size*0.505);
+    const fs=Math.round(size*0.52);
+    ctx.font=`900 ${fs}px "Arial Black","Arial Narrow Bold",Impact,Arial,sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('AF',size/2,size*0.52);
     return cv;
   }
   try{
