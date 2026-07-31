@@ -152,6 +152,7 @@ input[type=date]{color-scheme:dark}
 .gcrd{background:var(--bg2);border:1.5px solid var(--gd);border-radius:8px;padding:14px;margin-bottom:12px}
 /* EXERCISE BLOCKS */
 .exb{background:var(--bg2);border:1px solid var(--b);border-radius:8px;margin-bottom:14px;overflow:hidden}
+.exb.has-fail{border-color:#c04040;box-shadow:0 0 0 1px rgba(192,64,64,.35)}
 .exb.me{border-color:var(--gd)}
 .exbh{padding:12px;background:var(--bg3);border-bottom:1px solid var(--b)}
 .exb.me .exbh{background:var(--bg4);border-bottom-color:var(--gd)}
@@ -330,7 +331,7 @@ function load(){
 }
 function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
 function def(){return{
-  tab:'lib',trainDays:3,hasRuck:true,cw:4,
+  tab:'lib',trainDays:3,hasRuck:true,hasRuck2:false,cw:4,
   lib:[],cycles:[],cid:null,wk:0,dy:0,
   prs:[],sel:[],stEx:null,stTab:'over',
   name:'',bw:'',unit:'kg',defRest:60,libSearch:'',
@@ -511,7 +512,7 @@ function parseRest(s){
 }
 function startTimer(secs,lbl){
   if(TM.iv)clearInterval(TM.iv);
-  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,warned:false};
+  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,warned:false,warned20:false};
   const tb=document.getElementById('tbar');
   if(tb){tb.classList.add('vis');const tl=document.getElementById('tl');if(tl)tl.textContent=lbl||'Rest Timer';}
   TM.iv=setInterval(tickTM,200);tickTM();
@@ -525,7 +526,12 @@ function tickTM(){
     td.textContent=m+':'+(sc<10?'0':'')+sc;
     td.className='tbar-num'+(rem<11000?' urgent':'');
     if(tf){tf.className='tbar-fill';tf.style.width=((1-(rem/(TM.dur*1000)))*100)+'%';}
-    // 10-second warning — single beep + short vibrate
+    // 20-second verbal warning
+    if(rem<=20500&&!TM.warned20){
+      TM.warned20=true;
+      try{const u=new SpeechSynthesisUtterance('twenty');u.volume=1;u.rate=0.9;speechSynthesis.speak(u);}catch(e){}
+    }
+    // 10-second warning — beep + vibrate + verbal
     if(rem<=10500&&!TM.warned){
       TM.warned=true;
       if(navigator.vibrate)navigator.vibrate([120]);
@@ -534,10 +540,11 @@ function tickTM(){
         const o=ac.createOscillator(),g=ac.createGain();
         o.connect(g);g.connect(ac.destination);
         o.frequency.value=880;o.type='triangle';
-        g.gain.setValueAtTime(0.5,ac.currentTime);
+        g.gain.setValueAtTime(0.9,ac.currentTime);
         g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.15);
         o.start(ac.currentTime);o.stop(ac.currentTime+0.18);
       }catch(e){}
+      try{const u=new SpeechSynthesisUtterance('ten');u.volume=1;u.rate=0.9;speechSynthesis.speak(u);}catch(e){}
     }
   }else{
     clearInterval(TM.iv);TM.on=false;
@@ -601,8 +608,8 @@ function getTgt(libId,cid,week,day){
       hist.push({kg,reps:parseInt(st.reps)||0,rpe:parseFloat(st.rpe)||0,sets:st.sets||'',equipment:st.equipment||'',notes:st.notes||'',rest:st.rest||''});
     });
   }
-  cyc.sessions.forEach(s=>{if(s.week===week&&s.day===day)return;(s.exercises||[]).filter(e=>e.libId===libId).forEach(ex=>extract(ex,s,cid));});
-  if(cidxSib>0)siblings.slice(0,cidxSib).reverse().forEach(pc=>pc.sessions.forEach(s=>(s.exercises||[]).filter(e=>e.libId===libId).forEach(ex=>extract(ex,s,pc.id))));
+  cyc.sessions.forEach(s=>{if(s.week===week&&s.day===day)return;if(s.day!==day)return;(s.exercises||[]).filter(e=>e.libId===libId).forEach(ex=>extract(ex,s,cid));});
+  if(cidxSib>0)siblings.slice(0,cidxSib).reverse().forEach(pc=>pc.sessions.filter(s=>s.day===day).forEach(s=>(s.exercises||[]).filter(e=>e.libId===libId).forEach(ex=>extract(ex,s,pc.id))));
   if(!hist.length)return null;
   const best=hist.reduce((a,b)=>b.kg>a.kg?b:a,{kg:0,reps:0,rpe:0,sets:'',equipment:'',notes:''});
   if(!best.kg)return null;
@@ -709,7 +716,7 @@ function showWeekOverview(){
   const rows=ws.map(s=>{
     const sv=s.type!=='ruck'?s.exercises.reduce((t,e)=>t+exVol(e),0):0;
     const vsv=sv>0?vTonnes(sv):'';
-    const tl={long:'Long Session',short:'Short Session',full:'Full Session',ruck:'Saturday Ruck'}[s.type]||s.type;
+    const tl={long:'Long Session',short:'Short Session',full:'Full Session',ruck:'Ruck Session'}[s.type]||s.type;
     let exList='';
     if(s.type==='ruck'){
       exList=`<div style="font-family:var(--fn);font-size:12px;color:var(--t2);padding:4px 0">${s.ruckData?.distance?`${s.ruckData.distance}${ruDist()} · ${s.ruckData.weight||'?'}${uw()}`:'Not yet logged'}</div>`;
@@ -970,6 +977,7 @@ function genCycle(selIds,weeks,rotOff=0){
       sessions.push(mkShort(w,3));
     }
     if(hr)sessions.push({week:w,day:td,type:'ruck',done:false,notes:'',isHomeGym:false,exercises:[],ruckData:{weight:'',distance:'',duration:'',notes:'',equipment:''}});
+    if(hr&&S.hasRuck2)sessions.push({week:w,day:td+1,type:'ruck',done:false,notes:'',isHomeGym:false,exercises:[],ruckData:{weight:'',distance:'',duration:'',notes:'',equipment:''}});
   }
   return sessions;
 }
@@ -1006,6 +1014,7 @@ function autofill(cyc,prev){
 // ─── RENDER SHELL ─────────────────────────────────────────────────────────────
 function render(){
   const cyc=S.cycles.find(c=>c.id===S.cid);
+  const siblings=cyc?siblingCycles(S.cid):[];
   const TAB_SVG={
     lib:`<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="9" y1="8" x2="16" y2="8"/><line x1="9" y1="12" x2="16" y2="12"/></svg>`,
     cyc:`<svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><polyline points="8,15 10,17 14,13"/></svg>`,
@@ -1026,7 +1035,11 @@ function render(){
     <div class="hdr">
       <div class="logo"><div class="lmark">AF</div><div class="ltxt">APEX<em> FORTIS</em></div></div>
       <div class="hdr-r">
-        ${S.tab==='train'
+        ${S.tab==='train'&&cyc
+          ?`${(()=>{const ps=getPrevSession(S.cid,S.wk,S.dy);return ps?`<button class="tba btns ${showCompare?'on':''}" onclick="toggleCompare()" title="Compare with previous cycle" style="font-size:13px;font-weight:800;letter-spacing:.04em">↺C${ps.cycNum||1}</button>`:''})()}
+            <button class="tba btns" onclick="showTPanel()" title="Rest Timer" style="font-size:18px">⏱</button>
+            <button class="tba btns" onclick="showWeekOverview()" title="Week Overview" style="font-size:17px">⊞</button>`
+          :S.tab==='train'
           ?`<button class="tba btns" onclick="showTPanel()" title="Rest Timer" style="font-size:18px">⏱</button>
              <button class="tba btns" onclick="showWeekOverview()" title="Week Overview" style="font-size:17px">⊞</button>`
           :S.name?`<div style="font-family:var(--fn);font-size:13px;font-weight:700;color:var(--t2)">${S.name.split(' ')[0]}</div>`:''}
@@ -1268,7 +1281,7 @@ function sessStructure(td,hr){
   else if(td===2){rows.push({type:'long',label:'Day 1 — Long',slots:L});rows.push({type:'short',label:'Day 2 — Short',slots:S_});}
   else if(td===3){rows.push({type:'long',label:'Day 1 — Long',slots:L});rows.push({type:'short',label:'Day 2 — Short',slots:S_});rows.push({type:'long',label:'Day 3 — Long',slots:L});}
   else{rows.push({type:'long',label:'Day 1 — Long',slots:L});rows.push({type:'short',label:'Day 2 — Short',slots:S_});rows.push({type:'long',label:'Day 3 — Long',slots:L});rows.push({type:'short',label:'Day 4 — Push/Carry',slots:[{t:'push',l:'ME Push'},{t:'func',l:'Carry'},{t:'grip',l:'Grip'},{t:'acc',l:'Accessory'}]});}
-  if(hr)rows.push({type:'ruck',label:'Saturday Ruck',slots:[{t:'ruck',l:'Weight'},{t:'ruck',l:'Distance'},{t:'ruck',l:'Duration'}]});
+  if(hr)rows.push({type:'ruck',label:'Ruck Session',slots:[{t:'ruck',l:'Weight'},{t:'ruck',l:'Distance'},{t:'ruck',l:'Duration'}]});
   return rows;
 }
 function validateSel(selIds,td){
@@ -1295,9 +1308,9 @@ function renderPreview(){
     h+=`<div class="lbl mb6 mt12">Week ${w+1}</div>`;
     [0,1,2,3,4].forEach(d=>{
       const sess=sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
-      const tl=sess.type==='ruck'?'Saturday Ruck':`Day ${d+1} — ${sess.type==='short'?'Short':sess.type==='full'?'Full':'Long'}`;
+      const tl=sess.type==='ruck'?'Ruck Session':`Day ${d+1} — ${sess.type==='short'?'Short':sess.type==='full'?'Full':'Long'}`;
       h+=`<div class="prev-sess"><div class="prev-hd">${tl}</div>`;
-      if(sess.type==='ruck')h+=`<div class="prev-ex">■ Saturday Ruck</div>`;
+      if(sess.type==='ruck')h+=`<div class="prev-ex">■ Ruck Session</div>`;
       else sess.exercises.forEach(ex=>{h+=`<div class="prev-ex">■${ex.name} ${sb(ex.skill)}</div>`;});
       h+=`</div>`;
     });
@@ -1330,10 +1343,15 @@ function vCyc(c){
     <div class="tgg mb10">
       ${[1,2,3,4].map(n=>`<button class="tgo ${td===n?'on':''}" onclick="setTrainDays(${n})">${n} Day${n>1?'s':''}</button>`).join('')}
     </div>
-    <div class="lbl mb6">Saturday Ruck</div>
+    <div class="lbl mb6">Ruck Session</div>
     <div class="tgg mb10">
       <button class="tgo ${hr?'on':''}" onclick="setHasRuck(true)">■ Include</button>
       <button class="tgo ${!hr?'on':''}" onclick="setHasRuck(false)">Skip</button>
+    </div>
+    <div class="lbl mb6" style="margin-top:10px">Second Ruck</div>
+    <div class="tgog">
+      <button class="tgo ${S.hasRuck2?'on':''}" onclick="setHasRuck2(true)">■ Include</button>
+      <button class="tgo ${!S.hasRuck2?'on':''}" onclick="setHasRuck2(false)">Skip</button>
     </div>
     <div style="font-family:var(--fn);font-size:13px;color:var(--g2);font-weight:700;letter-spacing:.04em">
       ■${td+(hr?1:0)} sessions per week
@@ -1495,6 +1513,7 @@ function togSel(id,chk){
 }
 function setTrainDays(n){S.trainDays=n;save();rv();}
 function setHasRuck(v){S.hasRuck=v;save();rv();}
+function setHasRuck2(v){S.hasRuck2=v;save();rv();}
 function setCW(n){S.cw=n;save();rv();}
 let cycDelPending=null;
 function cycDelTap(id){
@@ -1638,6 +1657,7 @@ function applyManualAdditions(sessions,additions){
     });
   });
 }
+let _nextCycPending=null;
 function startNextCycle(cid){
   const prev=S.cycles.find(c=>c.id===cid);if(!prev)return;
   const cn=(prev.cycleNumber||1)+1;
@@ -1647,13 +1667,20 @@ function startNextCycle(cid){
   // All logged data is cleared; structure (exercise choice, role, order, supersets) is preserved
   const sessions=prev.sessions.map(sess=>{
     const idMap={};
-    const exercises=(sess.exercises||[]).map(ex=>{
+    const exercises=(sess.exercises||[]).filter(e=>!e.isWildcard).map(ex=>{
       const newId=uid();
       idMap[ex.id]=newId;
+      const prevEquip=(ex.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
+      const refSet=(ex.sets||[]).filter(s=>!s.failed&&parseFloat(s.weight)).sort((a,b)=>parseFloat(b.weight)-parseFloat(a.weight))[0]||(ex.sets||[])[0];
       return{id:newId,libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
         role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
         weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
-        restDefault:ex.restDefault||'',sets:[mkSet()]};
+        restDefault:ex.restDefault||'',sets:[{...mkSet(),
+          equipment:prevEquip,
+          reps:refSet?.reps||'',
+          sets:refSet?.sets||'',
+          rest:refSet?.rest||ex.restDefault||'',
+          notes:refSet?.notes||''}]};
     });
     // Re-map supersetWith using new IDs
     exercises.forEach((ex,i)=>{
@@ -1673,10 +1700,10 @@ function startNextCycle(cid){
   const cyc={id,name:baseName+(cn>1?` — Cycle ${cn}`:''),
     rotationId:prev.rotationId||prev.id,cycleNumber:cn,
     startDate:new Date().toLocaleDateString('en-GB'),
-    weeks:prev.weeks,trainDays:prev.trainDays||3,hasRuck:prev.hasRuck!==false,
+    weeks:prev.weeks,trainDays:prev.trainDays||3,hasRuck:prev.hasRuck!==false,hasRuck2:prev.hasRuck2||false,
     homeGymDays:[...(prev.homeGymDays||[])],sessions,
     selIds:[...prev.selIds],manualAdditions:[],supersetPairs:[]};
-  S.cycles.push(cyc);S.cid=cyc.id;S.wk=0;S.dy=0;
+  S.cycles.push(cyc);S.cid=cyc.id;S.wk=0;S.dy=0;_nextCycPending=null;
   save();nav('train');
   setTimeout(()=>showCycleCompleteReminder(prev.name||('Cycle '+(prev.cycleNumber||1))),400);
 }
@@ -1746,6 +1773,51 @@ function doAddEx(cid,w,d,libId){
 }
 
 
+function addWildcard(cid,w,d){
+  function rows(q){
+    const fl=q?S.lib.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())):S.lib;
+    return fl.sort((a,b)=>a.name.localeCompare(b.name)).map(l=>
+      `<div class="sw-row" onclick="doAddWildcard('${cid}',${w},${d},'${l.id}')">
+        <div class="sw-name">${l.name}</div>
+        <div class="fwrap">${sb(l.skill)}${fb(l.focus)}${cb(l.category)}</div>
+      </div>`).join('');
+  }
+  document.querySelector('.app').insertAdjacentHTML('beforeend',
+    `<div class="swov" id="swov" onclick="closeOverlay('swov',event)">
+      <div class="swsh" onclick="event.stopPropagation()">
+        <div class="sw-hdl"></div>
+        <div class="fbet mb8">
+          <div><div class="lbl">Wildcard Exercise</div><div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:2px">One-off · won't carry to future cycles</div></div>
+          <button class="tba xbtn" onclick="closeOverlay('swov')" style="font-size:18px">✕</button>
+        </div>
+        <input class="ins mb8" placeholder="Search library…" oninput="filterWildcardPicker(this.value,'${cid}',${w},${d})">
+        <div id="wc-picker">${rows('')}</div>
+      </div>
+    </div>`);
+}
+function filterWildcardPicker(q,cid,w,d){
+  const el=document.getElementById('wc-picker');if(!el)return;
+  const fl=q?S.lib.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())):S.lib;
+  el.innerHTML=fl.sort((a,b)=>a.name.localeCompare(b.name)).map(l=>
+    `<div class="sw-row" onclick="doAddWildcard('${cid}',${w},${d},'${l.id}')">
+      <div class="sw-name">${l.name}</div>
+      <div class="fwrap">${sb(l.skill)}${fb(l.focus)}${cb(l.category)}</div>
+    </div>`).join('');
+}
+function doAddWildcard(cid,w,d,libId){
+  const cyc=S.cycles.find(c=>c.id===cid);
+  const lib=S.lib.find(l=>l.id===libId);
+  if(!cyc||!lib)return;
+  const sess=cyc.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
+  if(sess.exercises.find(x=>x.libId===libId&&x.isWildcard))return;
+  const newEx={...mkEx({...lib,role:'manual'}),isWildcard:true};
+  const sorted=[...sess.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
+  const arr=[...sorted,newEx];
+  arr.forEach((e,i)=>e.sortOrder=i);
+  sess.exercises=arr;
+  // NOT added to manualAdditions — wildcard is session-only
+  save();closeOverlay('swov');rv();notify('Wildcard: '+lib.name);
+}
 function getDayLabels(cyc){
   return cyc.sessions.filter(s=>s.week===0).sort((a,b)=>a.day-b.day)
     .map(s=>s.type==='ruck'?'Ruck':s.type==='full'?'Train':`Day ${s.day+1}`);
@@ -1914,19 +1986,14 @@ function rComparePanel(cycId,week,day){
     const logged=sets.filter(s=>parseFloat(s.weight)>0);
     if(!logged.length)return`<div class="cmp-row"><span class="cmp-name">${ex.name}</span><span class="cmp-val" style="color:var(--t2)">no data</span></div>`;
     const mSfx=ex.metric==='metres'?'m':ex.metric==='seconds'?'s':ex.metric==='minutes'?'min':'r';
-    let summary;
-    if(ex.wuMode&&ex.topSetIdx!=null&&sets[ex.topSetIdx]){
-      const ts=sets[ex.topSetIdx];
-      summary=`${logged.length} attempt${logged.length>1?'s':''} → <strong>${ts.weight}${uw()} × ${ts.reps}${mSfx}</strong>${ts.rpe?' · RPE '+ts.rpe:''}`;
-    } else {
-      summary=logged.map(s=>{
-        const p=[`<strong>${s.weight}${uw()}</strong>`];
+    const wl=wLabel(ex);
+    const summary=logged.map(s=>{
+        const p=[`<strong>${s.weight}${wl}</strong>`];
         if(s.reps)p.push('×'+s.reps+mSfx);
         if(s.sets&&parseInt(s.sets)>1)p.push('×'+s.sets+' sets');
         if(s.rpe)p.push('RPE '+s.rpe);
         return p.join(' ');
       }).join(' &nbsp;·&nbsp; ');
-    }
     return`<div class="cmp-row"><span class="cmp-name">${ex.name}</span><span class="cmp-val">${summary}</span></div>`;
   }).filter(Boolean).join('');
   return`<div class="cmp-panel">${banners}
@@ -1951,19 +2018,23 @@ function vTrain(c){
   if(siblings.length>0){
     h+=`<div class="pnav mb8" style="align-items:center">
       ${siblings.map(s=>`<div class="pill ${s.id===S.cid?'on':''}" onclick="switchCycle('${s.id}')" style="font-family:var(--fn);font-weight:800">C${s.cycleNumber||1}</div>`).join('')}
-      ${isLatest?`<button class="pill" style="background:var(--bg4);border:1px dashed var(--b2);color:var(--t2)" onclick="startNextCycle('${S.cid}')">+ C${nextCycNum}</button>`:''}
+      ${isLatest?(_nextCycPending===S.cid
+        ?`<button class="pill" style="background:rgba(201,168,76,.15);border:1px solid var(--g);color:var(--g2);font-weight:800" onclick="startNextCycle('${S.cid}')">✓ Confirm C${nextCycNum}?</button>
+           <button class="pill" style="background:var(--bg4);border:1px dashed var(--b2);color:var(--t2)" onclick="_nextCycPending=null;rv()">✕</button>`
+        :`<button class="pill" style="background:var(--bg4);border:1px dashed var(--b2);color:var(--t2)" onclick="_nextCycPending='${S.cid}';rv()">+ C${nextCycNum}</button>`)
+      :''}
     </div>`;
   }
   h+=`<div class="pnav">
     ${Array.from({length:cyc.weeks},(_,w)=>`<div class="pill ${dl&&w===S.wk?'dl ':''} ${S.wk===w?'on':''}" onclick="setWk(${w})">${weekDot(cyc,w)} W${w+1}${(S.deloadWeeks?.[S.cid]||[]).includes(w)?' ↓':''}</div>`).join('')}
   </div>
-  <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;overflow-x:auto">
-    <div class="pnav" style="flex:1;margin-bottom:0;flex-wrap:nowrap">
-      ${dLbls.map((l,d)=>{const ds=cyc.sessions.find(s=>s.week===S.wk&&s.day===d);return`<div class="pill ${S.dy===d?'on':''}" onclick="setDy(${d})">${sessDot(ds)}${l}</div>`;}).join('')}
-    </div>
-    <button class="btn btns ${dl?'btnon':''}" style="flex-shrink:0;white-space:nowrap" onclick="toggleDeload('${cyc.id}',${S.wk})">
-      <span style="font-size:13px">${dl?'↓':'↓'}</span>${dl?'Deload ✓':'Deload?'}
+  <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+    <button class="btn btns ${dl?'btnon':''}" style="white-space:nowrap" onclick="toggleDeload('${cyc.id}',${S.wk})">
+      <span style="font-size:13px">↓</span>${dl?'Deload ✓':'Deload?'}
     </button>
+  </div>
+  <div class="pnav" style="margin-bottom:10px">
+    ${dLbls.map((l,d)=>{const ds=cyc.sessions.find(s=>s.week===S.wk&&s.day===d);return`<div class="pill ${S.dy===d?'on':''}" onclick="setDy(${d})">${sessDot(ds)}${l}</div>`;}).join('')}
   </div>
   <div class="swipe-nav">
     <div class="swp-btn l" onclick="${canP?'prvDay()':''}" style="${canP?'':'opacity:.2;pointer-events:none'}">‹${pL}</div>
@@ -1972,10 +2043,11 @@ function vTrain(c){
   </div>`;
   const sess=cyc.sessions.find(s=>s.week===S.wk&&s.day===S.dy);
   if(!sess){c.innerHTML=h+'<div class="empty">✕<h3>Session not found</h3></div>';return;}
-  if(dl)h+=`<div class="deload-bar">↓ DELOAD WEEK — Reduced load · Technique focus</div>`;
-  const sessTypeLabel={long:'Long Session',short:'Short Session',full:'Full Session',ruck:'Saturday Ruck'}[sess.type]||sess.type;
   const prevSess=getPrevSession(cyc.id,sess.week,sess.day);
   const prevLabel=prevSess?`C${prevSess.cycNum||'?'}`:null;
+  if(showCompare&&prevSess)h+=`<div style="position:sticky;top:52px;z-index:90;margin:-4px -16px 12px;background:var(--bg2);border-bottom:1px solid var(--b);padding:0 16px 10px">${rComparePanel(cyc.id,sess.week,sess.day)}</div>`;
+  if(dl)h+=`<div class="deload-bar">↓ DELOAD WEEK — Reduced load · Technique focus</div>`;
+  const sessTypeLabel={long:'Long Session',short:'Short Session',full:'Full Session',ruck:'Ruck Session'}[sess.type]||sess.type;
   const sessIsHG=sess.isHomeGym;
   h+=`<div class="fbet mb12">
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
@@ -1984,7 +2056,6 @@ function vTrain(c){
       ${sess.missed?`<span class="bdg" style="background:rgba(160,40,40,.2);border:1px solid #c04040;color:#e06060">MISSED</span>`:''}
     </div>
     <div style="display:flex;gap:6px">
-      ${prevSess?`<button class="btn btns ${showCompare?'btnon':''}" onclick="toggleCompare()">↺${prevLabel}</button>`:''}
       <button class="btn btns ${sess.missed?'btnon':''}${sess.missed?' btnd':''}" id="miss-area-${cyc.id}-${sess.week}-${sess.day}" onclick="togMissed('${cyc.id}',${sess.week},${sess.day})" style="${sess.missed?'border-color:#c04040;color:#e06060':''}">
         ✕ ${sess.missed?'Missed':'Miss?'}
       </button>
@@ -1993,7 +2064,6 @@ function vTrain(c){
       </button>
     </div>
   </div>`;
-  if(showCompare&&prevSess)h+=rComparePanel(cyc.id,sess.week,sess.day);
   if(sess.missed)h+=`<div class="warn-banner" style="border-color:#c04040;color:#e06060;margin-bottom:12px"><b>✕ Session Missed</b> — marked as not completed. Future cycles will show this session as a reference to beat. Tap "Miss?" to undo.</div>`;
   h+=`<div class="card mb12">
     <div class="lbl">Session Notes</div>
@@ -2004,6 +2074,9 @@ function vTrain(c){
   if(sess.type!=='ruck'){
     h+=`<button class="btn btns mt8 mb12" style="width:100%" onclick="addExToSession('${cyc.id}',${sess.week},${sess.day})">
       + Add Exercise to Session
+    </button>
+    <button class="btn btns mb12" style="width:100%;color:var(--gd);border-color:var(--gd)" onclick="addWildcard('${cyc.id}',${sess.week},${sess.day})">
+      ⚡ Add Wildcard
     </button>`;
   }
   c.innerHTML=h;
@@ -2083,7 +2156,8 @@ function rEx(ex,sess,cid){
   const orm=exMetric==='reps'?getBest1RM(ex.libId):null;
   const isAcc=ex.skill==='Accessories';
   const isMainLift=ex.skill==='Push'||ex.skill==='Pull'||ex.skill==='Squat';
-  let h=`<div class="exb ${isMe?'me':''}">
+  const hasFail=ex.sets.some(s=>s.failed);
+  let h=`<div class="exb ${isMe?'me':''} ${hasFail?'has-fail':''}">
     <div class="exbh">
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
@@ -2095,7 +2169,7 @@ function rEx(ex,sess,cid){
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${exCollapsed[ex.id]?'Expand':'Collapse'}">${exCollapsed[ex.id]?'▸':'▾'}</button>
         </div>
       </div>
-      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}${metricBadge(exMetric)}<span id="orm-${ex.id}" class="orm-bdg" style="${orm?'':'display:none'}">≈1RM ${orm||''}${uw()}</span></div>
+      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}${metricBadge(exMetric)}${ex.isWildcard?`<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">⚡ Wildcard</span>`:''}${orm?`<span id="orm-${ex.id}" class="orm-bdg">≈1RM ${orm||''}${uw()}</span>`:''}</div>
     </div>
     <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
 `;
@@ -2166,7 +2240,8 @@ function rSSEx(ex,sess,cid){
   if(!ss.sets||ss.sets.length!==ex.sets.length)ss.sets=ex.sets.map((_,i)=>ss.sets?.[i]||mkSet());
   const aMetric=ex.metric||'reps';const bMetric=ss.metric||'reps';
   const tgt=getTgt(ex.libId,cid,sess.week,sess.day);
-  let h=`<div class="exb">
+  const hasFail=ex.sets.some(s=>s.failed)||(ex.supersetWith?.sets||[]).some(s=>s.failed);
+  let h=`<div class="exb ${hasFail?'has-fail':''}">
     <div class="exbh">
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
@@ -2275,7 +2350,7 @@ function rRuck(sess,cid){
   return`<div class="exb me">
     <div class="exbh">
       <div class="fbet">
-        <div class="exbn">Saturday Ruck</div>
+        <div class="exbn">Ruck Session</div>
         <div class="exbr">Loaded March</div>
       </div>
     </div>
@@ -2373,32 +2448,37 @@ function vStats(c){
 function setStT(t){S.stTab=t;save();rv();}
 function stRender(cyc){
   const el=document.getElementById('stcont');if(!el)return;
-  if(S.stTab==='over')stOver(el,cyc);
-  else if(S.stTab==='vol')stVol(el,cyc);
+  const sibs=siblingCycles(S.cid);
+  if(S.stTab==='over')stOver(el,cyc,sibs);
+  else if(S.stTab==='vol')stVol(el,cyc,sibs);
   else if(S.stTab==='cycle')stCycle(el,cyc);
   else if(S.stTab==='prog')stProgress(el);
-  else if(S.stTab==='ruck')stRuck(el,cyc);
+  else if(S.stTab==='ruck')stRuck(el,cyc,sibs);
   else if(S.stTab==='orm')stORM(el);
   else if(S.stTab==='prs')vPRs(el);
 }
-function stOver(el,cyc){
-  const mainExs=cyc.sessions.flatMap(s=>(s.exercises||[]).filter(e=>MAIN_SKILLS.has(e.skill)));
+function stOver(el,cyc,sibs){
+  const allSess=sibs.flatMap(c=>c.sessions);
+  const mainExs=allSess.flatMap(s=>(s.exercises||[]).filter(e=>MAIN_SKILLS.has(e.skill)));
   const tV=mainExs.reduce((t,e)=>t+exVol(e),0);
-  const done=cyc.sessions.filter(s=>s.done).length;
-  const rucks=cyc.sessions.filter(s=>s.type==='ruck'&&s.ruckData&&parseFloat(s.ruckData.distance)>0);
+  const done=allSess.filter(s=>s.done).length;
+  const rucks=allSess.filter(s=>s.type==='ruck'&&s.ruckData&&parseFloat(s.ruckData.distance)>0);
   const bR=rucks.length?Math.max(...rucks.map(s=>parseFloat(s.ruckData.distance)||0)):0;
-  const meSets=cyc.sessions.flatMap(s=>(s.exercises||[]).filter(e=>e.role==='main').flatMap(e=>effSets(e)));
+  const meSets=allSess.flatMap(s=>(s.exercises||[]).filter(e=>e.role==='main').flatMap(e=>effSets(e)));
   const bME=meSets.reduce((a,b)=>(parseFloat(b.weight)||0)>(parseFloat(a.weight)||0)?b:a,{weight:0});
-  const pct=Math.round(done/cyc.sessions.length*100)||0;
+  const doneCyc=cyc.sessions.filter(s=>s.done).length;
+  const pct=Math.round(doneCyc/cyc.sessions.length*100)||0;
+  const planLabel=sibs.length>1?`Plan (${sibs.length} cycles)`:'This Cycle';
   el.innerHTML=`
+  <div style="font-family:var(--fn);font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t2);margin-bottom:6px">${planLabel}</div>
   <div class="sgrid">
-    <div class="stc"><div class="stv">${done}<span style="font-size:14px;color:var(--t2)">/${cyc.sessions.length}</span></div><div class="stl">Done</div></div>
+    <div class="stc"><div class="stv">${done}<span style="font-size:14px;color:var(--t2)">/${allSess.length}</span></div><div class="stl">Sessions</div></div>
     <div class="stc"><div class="stv">${vTonnes(tV)}</div><div class="stl">Volume</div></div>
-    <div class="stc"><div class="stv" style="font-size:${bME.weight?'20':'16'}px">${bME.weight?bME.weight+uw():'—'}</div><div class="stl">Best Top Set</div></div>
+    <div class="stc"><div class="stv" style="font-size:${bME.weight?'20':'16'}px">${bME.weight?bME.weight+uw():'—'}</div><div class="stl">Best Set</div></div>
     <div class="stc"><div class="stv" style="font-size:${bR?'20':'16'}px">${bR?bR+ruDist():'—'}</div><div class="stl">Best Ruck</div></div>
   </div>
   <div class="card">
-    <div class="fbet mb8"><div class="lbl">Cycle Progress</div><span style="font-family:var(--fn);font-size:14px;font-weight:700;color:var(--g2)">${pct}%</span></div>
+    <div class="fbet mb8"><div class="lbl">Current Cycle Progress</div><span style="font-family:var(--fn);font-size:14px;font-weight:700;color:var(--g2)">${pct}%</span></div>
     <div class="prog-bar" style="height:12px"><div class="prog-fill" style="width:${pct}%"></div></div>
     <div style="display:grid;grid-template-columns:repeat(${cyc.weeks},1fr);gap:4px;margin-top:10px">
       ${Array.from({length:cyc.weeks},(_,w)=>{
@@ -2410,46 +2490,47 @@ function stOver(el,cyc){
     </div>
   </div>`;
 }
-function stVol(el,cyc){
-  const exNames=[...new Set(cyc.sessions.flatMap(s=>(s.exercises||[]).map(e=>e.name)))].filter(Boolean).sort();
+function stVol(el,cyc,sibs){
+  const allSess=sibs.flatMap(c=>c.sessions);
+  const exNames=[...new Set(allSess.flatMap(s=>(s.exercises||[]).map(e=>e.name)))].filter(Boolean).sort();
   const selEx=S.stEx&&exNames.includes(S.stEx)?S.stEx:(exNames[0]||'');
-  const wD=Array.from({length:cyc.weeks},(_,w)=>({w:w+1,v:cyc.sessions.filter(s=>s.week===w&&s.type!=='ruck').flatMap(s=>(s.exercises||[]).filter(e=>MAIN_SKILLS.has(e.skill))).reduce((t,e)=>t+exVol(e),0)}));
-  const mWV=Math.max(...wD.map(d=>d.v),1);
-  const Ww=Math.max(200,cyc.weeks*80),Hw=120,bww=Math.min(50,Ww/cyc.weeks-12),cHw=80,pTw=16;
-  const wBars=wD.map((d,i)=>{
-    const bh=Math.max(2,(d.v/mWV)*cHw),x=i*(Ww/cyc.weeks)+(Ww/cyc.weeks-bww)/2,y=pTw+cHw-bh;
+  // Per-cycle volume bars (aggregate each cycle)
+  const cycVol=sibs.map(c=>({lbl:c.name||('C'+(c.cycleNumber||1)),v:c.sessions.filter(s=>s.type!=='ruck').flatMap(s=>(s.exercises||[]).filter(e=>MAIN_SKILLS.has(e.skill))).reduce((t,e)=>t+exVol(e),0)}));
+  const mWV=Math.max(...cycVol.map(d=>d.v),1);
+  const Ww=Math.max(200,cycVol.length*80),Hw=120,bww=Math.min(50,Ww/cycVol.length-12),cHw=80,pTw=16;
+  const wBars=cycVol.map((d,i)=>{
+    const bh=Math.max(2,(d.v/mWV)*cHw),x=i*(Ww/cycVol.length)+(Ww/cycVol.length-bww)/2,y=pTw+cHw-bh;
     const vs=d.v>0?vTonnes(d.v):'';
     return`<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bww}" height="${bh.toFixed(1)}" fill="var(--gd)" rx="4"/>
       ${d.v>0?`<text x="${(x+bww/2).toFixed(1)}" y="${(y-4).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${vs}</text>`:''}
-      <text x="${(x+bww/2).toFixed(1)}" y="${(Hw-6).toFixed(1)}" fill="var(--t2)" font-size="12" text-anchor="middle" font-family="Barlow Condensed" font-weight="700">W${d.w}</text></g>`;
+      <text x="${(x+bww/2).toFixed(1)}" y="${(Hw-6).toFixed(1)}" fill="var(--t2)" font-size="11" text-anchor="middle" font-family="Barlow Condensed" font-weight="700">${d.lbl.slice(0,8)}</text></g>`;
   }).join('');
-  el.innerHTML=`<div class="card"><div class="lbl mb8">Week Volume Comparison</div>
-    <svg width="${Ww}" height="${Hw}" viewBox="0 0 ${Ww} ${Hw}" style="display:block;width:100%">
+  el.innerHTML=`<div class="card"><div class="lbl mb8">Volume by Cycle</div>
+    <div class="scrollx"><svg width="${Ww}" height="${Hw}" viewBox="0 0 ${Ww} ${Hw}" style="display:block">
       <line x1="0" y1="${pTw+cHw}" x2="${Ww}" y2="${pTw+cHw}" stroke="var(--b)" stroke-width="1"/>${wBars}
-    </svg></div>
+    </svg></div></div>
   <div class="card"><div class="lbl mb8">Exercise Volume</div>
     <select id="stex" onchange="setStEx(this.value)" class="mb12">${exNames.map(n=>`<option value="${n}" ${n===selEx?'selected':''}>${n}</option>`).join('')}</select>
     <div id="vchart"></div></div>`;
-  if(selEx)rVChart(selEx,cyc);
+  if(selEx)rVChart(selEx,sibs);
 }
 function setStEx(n){S.stEx=n;save();rv();}
-function rVChart(name,cyc){
+function rVChart(name,sibs){
   const el=document.getElementById('vchart');if(!el)return;
   const data=[];
-  cyc.sessions.forEach(s=>(s.exercises||[]).filter(e=>e.name===name).forEach(e=>{
+  sibs.forEach(c=>c.sessions.forEach(s=>(s.exercises||[]).filter(e=>e.name===name).forEach(e=>{
     const v=exVol(e);
     const eff=effSets(e);
     const bk=Math.max(0,...eff.map(st=>parseFloat(st.weight)||0));
-    data.push({lbl:`W${s.week+1}D${s.day+1}`,v,bk});
-  }));
+    data.push({lbl:`C${c.cycleNumber||1}·W${s.week+1}`,v,bk});
+  })));
   if(!data.length){el.innerHTML='<div class="chart-empty">No data logged yet</div>';return;}
   const mV=Math.max(...data.map(d=>d.v),1);
   const W=Math.max(280,data.length*52),H=140,cW=W-20,cH=100,pT=14,bw=Math.min(36,(cW/data.length)-8);
   const bars=data.map((d,i)=>{
     const bh=Math.max(2,(d.v/mV)*cH),x=10+(i*(cW/data.length))+(cW/data.length-bw)/2,y=pT+cH-bh;
-    const vs=d.v>0?vTonnes(d.v):'';
     return`<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw}" height="${bh.toFixed(1)}" fill="var(--gd)" rx="3"/>
-      ${d.v>0?`<text x="${(x+bw/2).toFixed(1)}" y="${(y-4).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${vs}</text>`:''}
+      ${d.v>0?`<text x="${(x+bw/2).toFixed(1)}" y="${(y-4).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${vTonnes(d.v)}</text>`:''}
       ${d.bk>0?`<text x="${(x+bw/2).toFixed(1)}" y="${(H-20).toFixed(1)}" fill="var(--g2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${d.bk}${uw()}</text>`:''}
       <text x="${(x+bw/2).toFixed(1)}" y="${(H-6).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${d.lbl}</text></g>`;
   }).join('');
@@ -2556,12 +2637,12 @@ function stCycle(el,cyc){
   }
   el.innerHTML=`<div class="card" style="padding:10px">${rows}</div>`;
 }
-function stRuck(el,cyc){
-  const rucks=cyc.sessions.filter(s=>s.type==='ruck').map(s=>({
+function stRuck(el,cyc,sibs){
+  const rucks=sibs.flatMap(c=>c.sessions.filter(s=>s.type==='ruck').map(s=>({
     w:s.week+1,dist:parseFloat(s.ruckData?.distance)||0,
     weight:parseFloat(s.ruckData?.weight)||0,dur:s.ruckData?.duration||'',
     durMin:parseDuration(s.ruckData?.duration),notes:s.ruckData?.notes||''
-  }));
+  })));
   const hD=rucks.some(r=>r.dist>0);
   let chart='<div class="chart-empty">No ruck data logged yet</div>';
   if(hD){
