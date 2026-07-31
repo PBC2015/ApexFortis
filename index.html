@@ -333,7 +333,7 @@ function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
 function def(){return{
   tab:'lib',trainDays:3,hasRuck:true,hasRuck2:false,cw:4,
   lib:[],cycles:[],cid:null,wk:0,dy:0,
-  prs:[],sel:[],stEx:null,stTab:'over',
+  prs:[],prFavs:[],sel:[],stEx:null,stTab:'over',
   name:'',bw:'',unit:'kg',defRest:60,libSearch:'',
   deloadWeeks:{},homeGymDays:[],ruckUnit:'mi'
 };}
@@ -408,7 +408,8 @@ let S=load();
     if(!ex.sets||ex.sets.length<=1)return;
     while(ex.sets.length>1&&!hasSetData(ex.sets[ex.sets.length-1])){ex.sets.pop();d=true;}
   })));
-  // Resync historical session exercises' skill/category snapshots to current library
+  // Backfill metric on PRs logged before metric tracking was added
+  (S.prs||[]).forEach(p=>{if(!p.metric){const lib=S.lib.find(l=>l.name===p.exercise);if(lib?.metric&&lib.metric!=='reps'){p.metric=lib.metric;d=true;}}});
   // (fixes stale "anterior"/"posterior"/blank-Grip badges on sessions logged before the 7-category restructure)
   (S.cycles||[]).forEach(c=>(c.sessions||[]).forEach(sess=>(sess.exercises||[]).forEach(ex=>{
     const lib=S.lib.find(l=>l.id===ex.libId);
@@ -510,12 +511,67 @@ function parseRest(s){
   if(n>0&&n<=30)return Math.round(n*60);
   return n||S.defRest||120;
 }
+let _ac=null;
+function getAC(){
+  if(!_ac||_ac.state==='closed')_ac=new(window.AudioContext||window.webkitAudioContext)();
+  if(_ac.state==='suspended')_ac.resume();
+  return _ac;
+}
+function prewarmAudio(){
+  try{
+    const ac=getAC();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination);
+    g.gain.setValueAtTime(0,ac.currentTime);
+    o.start(ac.currentTime);o.stop(ac.currentTime+0.001);
+    const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);
+  }catch(e){}
+}
 function startTimer(secs,lbl){
   if(TM.iv)clearInterval(TM.iv);
-  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,warned:false,warned20:false};
+  if(TM._t20)clearTimeout(TM._t20);
+  if(TM._t10)clearTimeout(TM._t10);
+  if(TM._tvib)clearTimeout(TM._tvib);
+  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,warned:false,warned20:false,_t20:null,_t10:null,_tvib:null};
   const tb=document.getElementById('tbar');
   if(tb){tb.classList.add('vis');const tl=document.getElementById('tl');if(tl)tl.textContent=lbl||'Rest Timer';}
-  TM.iv=setInterval(tickTM,200);tickTM();
+  // Pre-schedule audio via Web Audio precision clock
+  try{
+    const ac=getAC();
+    const now=ac.currentTime;
+    function tone(freq,t,dur,vol=0.9){
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.connect(g);g.connect(ac.destination);
+      o.frequency.value=freq;o.type='triangle';
+      g.gain.setValueAtTime(vol,t);
+      g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+      o.start(t);o.stop(t+dur+0.05);
+    }
+    // 10s warning beep — scheduled exactly
+    if(secs>10){tone(880,now+(secs-10),0.18,0.9);}
+    // End-of-timer alarm — scheduled exactly
+    const et=now+secs;
+    tone(660,et,0.25);tone(770,et+0.32,0.25);tone(990,et+0.65,0.3);tone(1100,et+1.0,0.55);
+  }catch(e){}
+  // Speech synthesis needs lead time — fire 400ms before target
+  if(secs>20){
+    TM._t20=setTimeout(()=>{
+      try{const u=new SpeechSynthesisUtterance('twenty');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
+    },Math.max(0,(secs-20)*1000-400));
+  }
+  if(secs>10){
+    TM._t10=setTimeout(()=>{
+      try{const u=new SpeechSynthesisUtterance('ten');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
+    },Math.max(0,(secs-10)*1000-400));
+    TM._tvib=setTimeout(()=>{
+      if(navigator.vibrate)navigator.vibrate([120]);
+    },(secs-10)*1000);
+  }
+  // End vibration
+  TM._tvend=setTimeout(()=>{
+    if(navigator.vibrate)navigator.vibrate([500,120,500,120,600,120,900]);
+  },secs*1000);
+  TM.iv=setInterval(tickTM,100);tickTM();
 }
 function tickTM(){
   const rem=Math.max(0,TM.end-Date.now());
@@ -526,42 +582,20 @@ function tickTM(){
     td.textContent=m+':'+(sc<10?'0':'')+sc;
     td.className='tbar-num'+(rem<11000?' urgent':'');
     if(tf){tf.className='tbar-fill';tf.style.width=((1-(rem/(TM.dur*1000)))*100)+'%';}
-    // 20-second verbal warning
-    if(rem<=20500&&!TM.warned20){
-      TM.warned20=true;
-      try{const u=new SpeechSynthesisUtterance('twenty');u.volume=1;u.rate=0.9;speechSynthesis.speak(u);}catch(e){}
-    }
-    // 10-second warning — beep + vibrate + verbal
-    if(rem<=10500&&!TM.warned){
-      TM.warned=true;
-      if(navigator.vibrate)navigator.vibrate([120]);
-      try{
-        const ac=new(window.AudioContext||window.webkitAudioContext)();
-        const o=ac.createOscillator(),g=ac.createGain();
-        o.connect(g);g.connect(ac.destination);
-        o.frequency.value=880;o.type='triangle';
-        g.gain.setValueAtTime(0.9,ac.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+0.15);
-        o.start(ac.currentTime);o.stop(ac.currentTime+0.18);
-      }catch(e){}
-      try{const u=new SpeechSynthesisUtterance('ten');u.volume=1;u.rate=0.9;speechSynthesis.speak(u);}catch(e){}
-    }
   }else{
     clearInterval(TM.iv);TM.on=false;
     td.textContent='GO!';td.className='tbar-num done';
     if(tf)tf.className='tbar-fill done';
-    if(navigator.vibrate)navigator.vibrate([500,120,500,120,600,120,900]);
-    // Audio alarm — three ascending beeps
-    try{
-      const ac=new(window.AudioContext||window.webkitAudioContext)();
-      function beepTone(freq,t,dur,vol=0.9){const o=ac.createOscillator(),g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=freq;o.type='triangle';g.gain.setValueAtTime(vol,ac.currentTime+t);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+t+dur);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+dur+0.05);}
-      beepTone(660,0,0.25);beepTone(770,0.32,0.25);beepTone(990,0.65,0.3);beepTone(1100,1.0,0.55);
-    }catch(e){}
     setTimeout(()=>{const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');},4500);
   }
 }
 function extT(s){if(TM.on||TM.end>Date.now()){TM.end+=s*1000;TM.dur+=s;}}
-function stopT(){if(TM.iv)clearInterval(TM.iv);TM.on=false;const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');}
+function stopT(){
+  if(TM.iv)clearInterval(TM.iv);
+  ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
+  TM.on=false;
+  const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');
+}
 function updRestDefault(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.restDefault=v;save();}
 function startRest(cid,w,d,eid,si){const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;startTimer(parseRest(ex.sets[si].rest||ex.restDefault)||S.defRest||120,ex.name);}
 function quickTimer(s){startTimer(s,'Quick Rest');}
@@ -883,13 +917,14 @@ function resetData(){
 }
 
 // ─── PR DETECTION ─────────────────────────────────────────────────────────────
-function detectPR(name,weight,reps,notes=''){
-  const kg=parseFloat(weight),r=parseInt(reps);if(!kg||!r)return;
-  const best=S.prs.filter(p=>p.exercise===name&&parseInt(p.reps)===r)
+function detectPR(name,weight,reps,notes='',metric='reps'){
+  const kg=parseFloat(weight),r=parseFloat(reps);if(!kg||!r)return;
+  const best=S.prs.filter(p=>p.exercise===name&&parseFloat(p.reps)===r)
     .reduce((a,b)=>parseFloat(b.kg)>parseFloat(a.kg)?b:a,{kg:0});
   if(kg>parseFloat(best.kg)){
-    S.prs.push({id:uid(),exercise:name,kg,reps:r,date:new Date().toLocaleDateString('en-GB'),notes});
-    save();notify('★ PR — '+name+' '+kg+uw()+' × '+r+'r');
+    S.prs.push({id:uid(),exercise:name,kg,reps:r,date:new Date().toLocaleDateString('en-GB'),notes,metric:metric||'reps'});
+    const unitSfx=metric==='metres'?'m':metric==='seconds'?'s':metric==='minutes'?'min':'r';
+    save();notify('★ PR — '+name+' '+kg+uw()+' × '+r+unitSfx);
   }
 }
 
@@ -2099,6 +2134,8 @@ function logSetAsPR(name,cid,w,d,eid,si){
 function rSess(sess,cid){
   if(!sess.exercises.length)return'<div class="empty">—<h3>No exercises planned</h3></div>';
   const sorted=[...sess.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
+  // Default new/unseen cards to collapsed
+  sorted.forEach(ex=>{if(!(ex.id in exCollapsed))exCollapsed[ex.id]=true;});
   return sorted.map(ex=>rEx(ex,sess,cid)).join('');
 }
 
@@ -2394,7 +2431,7 @@ function upd(cid,w,d,eid,si,f,v){
 function prCheck(name,cid,w,d,eid,si){
   const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
   const s=ex.sets[si];if(s.failed)return;
-  detectPR(name,s.weight,s.reps,s.notes||'');
+  detectPR(name,s.weight,s.reps,s.notes||'',ex.metric||'reps');
 }
 function addSet(cid,w,d,eid){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
@@ -2568,7 +2605,7 @@ function stProgress(el){
   const minKg=Math.min(...raw.map(d=>d.bestKg));
   const pad=(maxKg-minKg)*0.15||maxKg*0.1;
   const yMin=Math.max(0,minKg-pad),yMax=maxKg+pad;
-  const W=Math.max(220,raw.length*72),H=140,pT=22,pB=30,pL=8,pR=8;
+  const W=Math.max(240,raw.length*80),H=140,pT=22,pB=30,pL=20,pR=20;
   const cW=W-pL-pR,cH=H-pT-pB;
   const pt=d=>({x:pL+(raw.length>1?(raw.indexOf(d)/(raw.length-1))*cW:cW/2),y:pT+cH-((yMax>yMin?(d.bestKg-yMin)/(yMax-yMin):0.5)*cH)});
   const pts=raw.map(pt);
@@ -2576,7 +2613,7 @@ function stProgress(el){
   const fillPath=linePath+` L${pts[pts.length-1].x.toFixed(1)},${(pT+cH)} L${pts[0].x.toFixed(1)},${(pT+cH)} Z`;
   const dots=pts.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="var(--gd)" stroke="#0c1828" stroke-width="1.5"/>
     <text x="${p.x.toFixed(1)}" y="${(p.y-9).toFixed(1)}" fill="var(--g2)" font-size="10" font-weight="700" text-anchor="middle" font-family="Barlow Condensed">${raw[i].bestKg}${uw()}</text>
-    <text x="${p.x.toFixed(1)}" y="${(H-pB+13).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${raw[i].cycleName.slice(0,10)}</text>`).join('');
+    <text x="${p.x.toFixed(1)}" y="${(H-pB+13).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${raw[i].cycleName.replace(/\s*—\s*Cycle\s*/i,' C').slice(0,12)}</text>`).join('');
   const diff=raw[raw.length-1].bestKg-raw[0].bestKg;
   const pct=raw[0].bestKg?Math.round(diff/raw[0].bestKg*100):0;
   const trend=diff>0?`<span style="color:var(--green)">▲ +${Math.round(diff)}${uw()} (+${pct}%)</span>`:diff<0?`<span style="color:#e06060">▼ ${Math.round(diff)}${uw()} (${pct}%)</span>`:`<span style="color:var(--t2)">No change</span>`;
@@ -2639,7 +2676,9 @@ function stCycle(el,cyc){
 }
 function stRuck(el,cyc,sibs){
   const rucks=sibs.flatMap(c=>c.sessions.filter(s=>s.type==='ruck').map(s=>({
-    w:s.week+1,dist:parseFloat(s.ruckData?.distance)||0,
+    lbl:`C${c.cycleNumber||1}W${s.week+1}`,
+    w:s.week+1,cyc:c.cycleNumber||1,
+    dist:parseFloat(s.ruckData?.distance)||0,
     weight:parseFloat(s.ruckData?.weight)||0,dur:s.ruckData?.duration||'',
     durMin:parseDuration(s.ruckData?.duration),notes:s.ruckData?.notes||''
   })));
@@ -2664,7 +2703,7 @@ function stRuck(el,cyc,sibs){
         ${r.dist>0?`<text x="${(x+seg*.31).toFixed(1)}" y="${(pT+cH-dh-4).toFixed(1)}" fill="var(--g)" font-size="8" text-anchor="middle" font-family="Barlow Condensed">${r.dist}${ruDist()}</text>`:''}
         ${r.weight>0?`<text x="${(x+seg*1.31).toFixed(1)}" y="${(pT+cH-wh-4).toFixed(1)}" fill="var(--t2)" font-size="8" text-anchor="middle" font-family="Barlow Condensed">${r.weight}${uw()}</text>`:''}
         ${r.durMin>0?`<text x="${(x+seg*2.31).toFixed(1)}" y="${(pT+cH-durH-4).toFixed(1)}" fill="var(--green)" font-size="8" text-anchor="middle" font-family="Barlow Condensed">${r.dur}</text>`:''}
-        <text x="${(x+bw/2).toFixed(1)}" y="${(H-pB+12).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">W${r.w}</text>
+        <text x="${(x+bw/2).toFixed(1)}" y="${(H-pB+12).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${r.lbl}</text>
       </g>`;
     }).join('');
     chart=`<div class="scrollx"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block">
@@ -2679,7 +2718,10 @@ function stRuck(el,cyc,sibs){
   }
   el.innerHTML=`<div class="card">${chart}</div>
   ${rucks.filter(r=>r.dist||r.weight).map(r=>`<div class="card-i fbet">
-    <span style="font-family:var(--fn);font-size:16px;font-weight:800;color:var(--g2)">Week ${r.w}</span>
+    <div>
+      <div style="font-family:var(--fn);font-size:16px;font-weight:800;color:var(--g2)">${r.lbl}</div>
+      <div style="font-size:11px;color:var(--t2);font-family:var(--fn);margin-top:2px">Week ${r.w} · Cycle ${r.cyc}</div>
+    </div>
     <div>
       <div style="font-family:var(--fn);font-size:13px;color:var(--t2)">${r.dur}</div>
       <div class="fwrap mt8">
@@ -2748,13 +2790,20 @@ function stORM(el){
 // ─── PRs VIEW ─────────────────────────────────────────────────────────────────
 let prOpen={};
 function togglePRGroup(name){prOpen[name]=!prOpen[name];rv();}
+function togglePRFav(name,e){if(e)e.stopPropagation();if(!S.prFavs)S.prFavs=[];const idx=S.prFavs.indexOf(name);if(idx>-1)S.prFavs.splice(idx,1);else S.prFavs.push(name);save();rv();}
+function prMetric(p){return p.metric||(S.lib.find(l=>l.name===p.exercise)?.metric)||'reps';}
+function prRepSfx(p){const m=prMetric(p);return m==='metres'?' m':m==='seconds'?' s':m==='minutes'?' min':' rep'+(parseFloat(p.reps)!==1?'s':'');}
 function vPRs(c){
   // Group by exercise name, sort each group by kg desc
   const groups={};
   (S.prs||[]).forEach(p=>{if(!groups[p.exercise])groups[p.exercise]=[];groups[p.exercise].push(p);});
   Object.values(groups).forEach(g=>g.sort((a,b)=>parseFloat(b.kg)-parseFloat(a.kg)||(b.date<a.date?-1:1)));
-  // Sort groups by their best (first) entry kg desc
-  const sortedGroups=Object.entries(groups).sort((a,b)=>parseFloat(b[1][0].kg)-parseFloat(a[1][0].kg));
+  const favs=S.prFavs||[];
+  const sortedGroups=Object.entries(groups).sort((a,b)=>{
+    const aF=favs.includes(a[0]),bF=favs.includes(b[0]);
+    if(aF&&!bF)return -1;if(!aF&&bF)return 1;
+    return parseFloat(b[1][0].kg)-parseFloat(a[1][0].kg);
+  });
   let h=`<div class="stitle">Personal Records</div>
   <div class="card mb12">
     <div class="lbl">Exercise / Variation</div>
@@ -2772,17 +2821,21 @@ function vPRs(c){
     sortedGroups.forEach(([name,prs])=>{
       const best=prs[0];
       const isOpen=prOpen[name]||false;
+      const isFav=(S.prFavs||[]).includes(name);
       const enc=encodeURIComponent(name);
       h+=`<div class="card mb8" style="padding:0;overflow:hidden">
         <div class="fbet" style="padding:12px 14px;cursor:pointer;user-select:none" onclick="togglePRGroup(decodeURIComponent('${enc}'))">
-          <div>
-            <div style="font-family:var(--fn);font-size:15px;font-weight:700">${name}</div>
-            <div style="font-size:11px;color:var(--t2);margin-top:2px;font-family:var(--fn)">${prs.length} record${prs.length!==1?'s':''}</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button onclick="togglePRFav(decodeURIComponent('${enc}'),event)" style="background:none;border:none;cursor:pointer;font-size:20px;color:${isFav?'#f0c030':'var(--t2)'};padding:0;line-height:1;flex-shrink:0" title="${isFav?'Unfavourite':'Favourite'}">${isFav?'★':'☆'}</button>
+            <div>
+              <div style="font-family:var(--fn);font-size:15px;font-weight:700">${name}</div>
+              <div style="font-size:11px;color:var(--t2);margin-top:2px;font-family:var(--fn)">${prs.length} record${prs.length!==1?'s':''}</div>
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:12px">
             <div style="text-align:right">
               <div style="font-family:var(--fn);font-size:20px;font-weight:800;color:var(--g2)">${best.kg}${uw()}</div>
-              <div style="font-size:12px;color:var(--t2);font-family:var(--fn);font-weight:600">${best.reps} rep${best.reps!==1?'s':''}</div>
+              <div style="font-size:12px;color:var(--t2);font-family:var(--fn);font-weight:600">${best.reps}${prRepSfx(best)}</div>
             </div>
             <span style="color:var(--t2);font-size:21px;width:16px">${isOpen?'▾':'▸'}</span>
           </div>
@@ -2791,7 +2844,7 @@ function vPRs(c){
           const pending=prDelPending===p.id;
           return`<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;${pi<prs.length-1?'border-bottom:0.5px solid var(--b2)':''}${pending?';background:rgba(160,40,40,.08)':''}">
             <div style="flex:1">
-              <div style="font-family:var(--fn);font-size:14px;font-weight:800;color:${pi===0?'var(--g2)':'var(--t)'}">${p.kg}${uw()} × ${p.reps} rep${p.reps!==1?'s':''}</div>
+              <div style="font-family:var(--fn);font-size:14px;font-weight:800;color:${pi===0?'var(--g2)':'var(--t)'}">${p.kg}${uw()} × ${p.reps}${prRepSfx(p)}</div>
               <div style="font-size:11px;color:var(--t2);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 ${prDateEdit===p.id
                   ?`<input type="date" value="${toInputDate(p.date)}" style="font-size:12px;padding:3px 6px;border-radius:4px;background:var(--bg3);border:1px solid var(--g);color:var(--t);font-family:var(--fn)" onchange="savePRDate('${p.id}',this.value)" onblur="savePRDate('${p.id}',this.value)"><button class="btn btns" style="font-size:11px;height:26px;padding:0 8px" onclick="prDateEdit=null;rv()">Cancel</button>`
@@ -3094,6 +3147,7 @@ self.addEventListener('fetch',e=>{
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 setupPWA();
 render();
+prewarmAudio();
 // ─── SPLASH SCREEN ────────────────────────────────────────────────────────────
 (function(){
   const spl=document.createElement('div');
