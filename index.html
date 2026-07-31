@@ -2028,13 +2028,13 @@ function vTrain(c){
   h+=`<div class="pnav">
     ${Array.from({length:cyc.weeks},(_,w)=>`<div class="pill ${dl&&w===S.wk?'dl ':''} ${S.wk===w?'on':''}" onclick="setWk(${w})">${weekDot(cyc,w)} W${w+1}${(S.deloadWeeks?.[S.cid]||[]).includes(w)?' ↓':''}</div>`).join('')}
   </div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:6px">
+  <div class="pnav" style="margin-bottom:6px">
+    ${dLbls.map((l,d)=>{const ds=cyc.sessions.find(s=>s.week===S.wk&&s.day===d);return`<div class="pill ${S.dy===d?'on':''}" onclick="setDy(${d})">${sessDot(ds)}${l}</div>`;}).join('')}
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
     <button class="btn btns ${dl?'btnon':''}" style="white-space:nowrap" onclick="toggleDeload('${cyc.id}',${S.wk})">
       <span style="font-size:13px">↓</span>${dl?'Deload ✓':'Deload?'}
     </button>
-  </div>
-  <div class="pnav" style="margin-bottom:10px">
-    ${dLbls.map((l,d)=>{const ds=cyc.sessions.find(s=>s.week===S.wk&&s.day===d);return`<div class="pill ${S.dy===d?'on':''}" onclick="setDy(${d})">${sessDot(ds)}${l}</div>`;}).join('')}
   </div>
   <div class="swipe-nav">
     <div class="swp-btn l" onclick="${canP?'prvDay()':''}" style="${canP?'':'opacity:.2;pointer-events:none'}">‹${pL}</div>
