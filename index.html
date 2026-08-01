@@ -163,6 +163,7 @@ input[type=date]{color-scheme:dark}
 .collapse-btn{background:none;border:none;cursor:pointer;color:var(--t2);font-size:21px;padding:2px 4px;line-height:1;flex-shrink:0;align-self:flex-start}
 /* SET CARDS */
 .setc{background:var(--bg3);border:1px solid var(--b);border-radius:7px;padding:10px;margin-bottom:8px}
+input.carried-val{color:var(--t2) !important;font-style:italic}
 .setc.topset{border:1.5px solid var(--g);background:rgba(74,56,16,.3);border-left:4px solid var(--g2)}
 .setc.attempt{opacity:.7;border-color:var(--b2)}
 .sr1{display:grid;grid-template-columns:22px 1fr 1fr 1fr 32px;gap:6px;align-items:end;margin-bottom:8px}
@@ -598,6 +599,17 @@ function stopT(){
 }
 function updRestDefault(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.restDefault=v;save();}
 function startRest(cid,w,d,eid,si){const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;startTimer(parseRest(ex.sets[si].rest||ex.restDefault)||S.defRest||120,ex.name);}
+function upd(cid,w,d,eid,si,f,v){
+  const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
+  const s=ex.sets[si];s[f]=v;
+  if(s.carried&&s.carried[f]){
+    s.carried[f]=false;
+    const inp=document.getElementById('sf-'+eid+'-'+si+'-'+f);
+    if(inp)inp.classList.remove('carried-val');
+  }
+  save();
+  if(f==='weight'||f==='reps')refreshOrm(cid,w,d,eid);
+}
 function quickTimer(s){startTimer(s,'Quick Rest');}
 function showTPanel(){
   document.getElementById('tpanel')?.remove();
@@ -662,10 +674,9 @@ function cacheTgt(eid,tgt){_lastTgt[eid]=tgt;}
 function applyTgt(cid,w,d,eid){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
   const tgt=_lastTgt[eid];if(!tgt)return;
-  const s=ex.sets.find(x=>!x.weight)||ex.sets[0];
-  if(!s)return;
-  s.weight=String(tgt.kg);
-  s.reps=String(tgt.reps);
+  const s=ex.sets[0];if(!s)return;
+  s.weight=String(tgt.kg);s.reps=String(tgt.reps);
+  if(s.carried){s.carried.weight=false;s.carried.reps=false;}
   if(tgt.pSets)s.sets=String(tgt.pSets);
   if(tgt.pRest)s.rest=String(tgt.pRest);
   if(tgt.pNotes)s.notes=tgt.pNotes;
@@ -1384,7 +1395,7 @@ function vCyc(c){
       <button class="tgo ${!hr?'on':''}" onclick="setHasRuck(false)">Skip</button>
     </div>
     <div class="lbl mb6" style="margin-top:10px">Second Ruck</div>
-    <div class="tgog">
+    <div class="tgg mb10">
       <button class="tgo ${S.hasRuck2?'on':''}" onclick="setHasRuck2(true)">■ Include</button>
       <button class="tgo ${!S.hasRuck2?'on':''}" onclick="setHasRuck2(false)">Skip</button>
     </div>
@@ -1706,16 +1717,21 @@ function startNextCycle(cid){
       const newId=uid();
       idMap[ex.id]=newId;
       const prevEquip=(ex.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
-      const refSet=(ex.sets||[]).filter(s=>!s.failed&&parseFloat(s.weight)).sort((a,b)=>parseFloat(b.weight)-parseFloat(a.weight))[0]||(ex.sets||[])[0];
+      const prevSets=ex.sets||[];
+      const carryFields=['weight','reps','sets','rpe','rest','equipment','notes'];
+      const newSets=prevSets.length>0?prevSets.map(ps=>{
+        const carried={};
+        carryFields.forEach(f=>{if(ps[f]!=null&&ps[f]!=='')carried[f]=true;});
+        return{...mkSet(),
+          weight:ps.weight||'',reps:ps.reps||'',sets:ps.sets||'',
+          rpe:ps.rpe||'',rest:ps.rest||ex.restDefault||'',
+          equipment:ps.equipment||prevEquip,notes:ps.notes||'',
+          failed:false,carried:Object.keys(carried).length?carried:null};
+      }):[{...mkSet(),equipment:prevEquip}];
       return{id:newId,libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
         role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
         weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
-        restDefault:ex.restDefault||'',sets:[{...mkSet(),
-          equipment:prevEquip,
-          reps:refSet?.reps||'',
-          sets:refSet?.sets||'',
-          rest:refSet?.rest||ex.restDefault||'',
-          notes:refSet?.notes||''}]};
+        restDefault:ex.restDefault||'',sets:newSets};
     });
     // Re-map supersetWith using new IDs
     exercises.forEach((ex,i)=>{
@@ -2231,22 +2247,22 @@ function rEx(ex,sess,cid){
     h+=`<div class="setc ${s.failed?'failed':''}">
       <div class="sr1">
         <div class="snum">${si+1}</div>
-        <div class="sf"><label>${wLabel(ex)}</label><input type="number" inputmode="decimal" value="${s.weight}" placeholder="0" style="${failStyle(s)}"
+        <div class="sf"><label>${wLabel(ex)}</label><input type="number" inputmode="decimal" id="sf-${ex.id}-${si}-weight" value="${s.weight}" placeholder="0" class="${s.carried&&s.carried['weight']?'carried-val':''}" style="${failStyle(s)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)"
           ${isReps?`onblur="prCheck('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${si})"`:''}>
         </div>
-        <div class="sf"><label>${repLbl}</label><input type="number" inputmode="${repMode}" value="${s.reps}" placeholder="0" style="${failStyle(s)}"
+        <div class="sf"><label>${repLbl}</label><input type="number" inputmode="${repMode}" id="sf-${ex.id}-${si}-reps" value="${s.reps}" placeholder="0" class="${s.carried&&s.carried['reps']?'carried-val':''}" style="${failStyle(s)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value)"></div>
-        <div class="sf"><label>Sets</label><input type="number" inputmode="numeric" value="${s.sets||''}" placeholder="1" title="How many sets performed" style="${failStyle(s)}"
+        <div class="sf"><label>Sets</label><input type="number" inputmode="numeric" id="sf-${ex.id}-${si}-sets" value="${s.sets||''}" placeholder="1" class="${s.carried&&s.carried['sets']?'carried-val':''}" title="How many sets performed" style="${failStyle(s)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'sets',this.value)"></div>
         <button class="btn btnd btnxs" onclick="rmSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>
       </div>
       <div class="sr2">
-        <div class="sf"><label>RPE</label><input type="number" inputmode="decimal" step=".5" min="1" max="10" value="${s.rpe||''}" placeholder="1–10"
+        <div class="sf"><label>RPE</label><input type="number" inputmode="decimal" step=".5" min="1" max="10" id="sf-${ex.id}-${si}-rpe" value="${s.rpe||''}" placeholder="1–10" class="${s.carried&&s.carried['rpe']?'carried-val':''}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rpe',this.value)"></div>
-        <div class="sf"><label>Rest (s)</label><input type='number' inputmode='numeric' value="${s.rest||''}" placeholder="${S.defRest||60}"
+        <div class="sf"><label>Rest (s)</label><input type='number' inputmode='numeric' id="sf-${ex.id}-${si}-rest" value="${s.rest||''}" placeholder="${S.defRest||60}" class="${s.carried&&s.carried['rest']?'carried-val':''}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rest',this.value)"></div>
-        <div class="sf"><label>Notes</label><input value="${s.notes||''}" placeholder="…"
+        <div class="sf"><label>Notes</label><input id="sf-${ex.id}-${si}-notes" value="${s.notes||''}" placeholder="…" class="${s.carried&&s.carried['notes']?'carried-val':''}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'notes',this.value)"></div>
       </div>
       <div style="display:flex;gap:6px;margin-top:8px">
@@ -2423,11 +2439,6 @@ function refreshOrm(cid,w,d,eid){
   if(best){badge.textContent='≈1RM '+best+uw();badge.style.display='';}
   else badge.style.display='none';
 }
-function upd(cid,w,d,eid,si,f,v){
-  const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
-  ex.sets[si][f]=v;save();
-  if(f==='weight'||f==='reps')refreshOrm(cid,w,d,eid);
-}
 function prCheck(name,cid,w,d,eid,si){
   const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
   const s=ex.sets[si];if(s.failed)return;
@@ -2476,7 +2487,7 @@ function vStats(c){
   const cyc=S.cycles.find(x=>x.id===S.cid);
   if(!cyc){c.innerHTML=`<div class="empty">▦<h3>No Active Cycle</h3><p>Generate a cycle to see stats</p></div>`;return;}
   if(!S.stTab||S.stTab==='rpe')S.stTab='over';
-  const tabs=[['over','Overview'],['vol','Volume'],['cycle','Cycle'],['prog','Progress'],['ruck','Ruck'],['orm','Est 1RM'],['prs','PRs']];
+  const tabs=[['over','Overview'],['cycle','Cycle'],['prs','PRs'],['ruck','Ruck'],['orm','Est 1RM'],['prog','Progress'],['vol','Volume']];
   c.innerHTML=`<div class="stitle">Stats</div>
   <div class="stabs">${tabs.map(([k,l])=>`<div class="stab ${S.stTab===k?'on':''}" onclick="setStT('${k}')">${l}</div>`).join('')}</div>
   <div id="stcont"></div>`;
