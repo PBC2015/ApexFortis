@@ -3176,66 +3176,62 @@ function dlApp(){
 
 // ─── PWA MANIFEST SETUP ───────────────────────────────────────────────────────
 function setupPWA(){
-  // ── Generate AF logo icon via Canvas ──────────────────────────────────────
-  function drawIcon(size,padding){
-    padding=padding||0;
-    const cv=document.createElement('canvas');cv.width=cv.height=size;
-    const ctx=cv.getContext('2d');
-    // Full canvas fill — most reliable approach, no path needed
-    ctx.fillStyle='#0c1828';
-    ctx.fillRect(0,0,size,size);
-    // Inner gold border (inset by padding)
-    const p=Math.max(2,size*0.025)+padding;
-    ctx.strokeStyle='rgba(201,168,76,0.55)';
-    ctx.lineWidth=Math.max(2,size*0.018);
-    ctx.strokeRect(p,p,size-p*2,size-p*2);
-    // "AF" text — system fonts only, centred
-    ctx.fillStyle='#c9a84c';
-    const fs=Math.round((size-padding*2)*0.52);
-    ctx.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;
-    ctx.textAlign='center';
-    ctx.textBaseline='middle';
-    ctx.fillText('AF',size/2,size*0.51);
-    return cv;
+  // ── Synchronous icon generation via toDataURL (no async toBlob) ───────────
+  function makeIconUrl(size){
+    try{
+      const cv=document.createElement('canvas');cv.width=cv.height=size;
+      const ctx=cv.getContext('2d');
+      // Fully opaque navy — fillRect is unconditional, never transparent
+      ctx.fillStyle='#0c1828';
+      ctx.fillRect(0,0,size,size);
+      // Gold AF — system fonts, large and centred
+      ctx.fillStyle='#c9a84c';
+      ctx.font=`900 ${Math.floor(size*0.52)}px Arial`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText('AF',size/2,size/2);
+      // Convert to blob URL synchronously: dataURL → binary → Blob → objectURL
+      const d=cv.toDataURL('image/png');
+      const b=atob(d.split(',')[1]);
+      const u=new Uint8Array(b.length);
+      for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+      return URL.createObjectURL(new Blob([u],{type:'image/png'}));
+    }catch(e){return'';}
   }
   try{
-    // Maskable icon: full bleed (no padding) — for Android adaptive icon system
-    // Any icon: modest padding — for contexts that show the icon as-is
-    const cvMask=drawIcon(512,0),cvAny=drawIcon(512,20),cv192=drawIcon(192,0);
-    cvMask.toBlob(bMask=>{
-      cvAny.toBlob(bAny=>{
-        cv192.toBlob(b192=>{
-          const uMask=URL.createObjectURL(bMask);
-          const uAny=URL.createObjectURL(bAny);
-          const u192=URL.createObjectURL(b192);
-          const manifest={name:'Apex Fortis',short_name:'Apex Fortis',
-            description:'Conjugate Strength Training',
-            start_url:'.',display:'standalone',
-            background_color:'#0c1828',theme_color:'#0c1828',
-            orientation:'portrait',
-            icons:[
-              {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
-              {src:uMask,sizes:'512x512',type:'image/png',purpose:'maskable'},
-              {src:uAny,sizes:'512x512',type:'image/png',purpose:'any'}
-            ]
-          };
-          const mBlob=new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
-          const link=document.getElementById('pwa-manifest');
-          if(link)link.href=URL.createObjectURL(mBlob);
-          ['icon','apple-touch-icon'].forEach(rel=>{
-            let el=document.querySelector(`link[rel='${rel}']`);
-            if(!el){el=document.createElement('link');el.rel=rel;document.head.appendChild(el);}
-            el.href=u192;
-          });
-        },'image/png');
-      },'image/png');
-    },'image/png');
+    const u192=makeIconUrl(192);
+    const u512=makeIconUrl(512);
+    // Manifest with absolute start_url so blob-origin relative resolution can't break it
+    const startUrl=location.origin+location.pathname;
+    const scope=location.origin+location.pathname.replace(/[^/]*$/,'');
+    const manifest={
+      name:'Apex Fortis',short_name:'Apex Fortis',
+      description:'Conjugate Strength Training',
+      start_url:startUrl,scope:scope,
+      display:'standalone',
+      background_color:'#0c1828',theme_color:'#0c1828',
+      orientation:'portrait',
+      icons:[
+        {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
+        {src:u192,sizes:'192x192',type:'image/png',purpose:'any'},
+        {src:u512,sizes:'512x512',type:'image/png',purpose:'maskable'},
+        {src:u512,sizes:'512x512',type:'image/png',purpose:'any'}
+      ]
+    };
+    const mUrl=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));
+    const link=document.getElementById('pwa-manifest');
+    if(link)link.href=mUrl;
+    ['icon','apple-touch-icon'].forEach(rel=>{
+      let el=document.querySelector(`link[rel='${rel}']`);
+      if(!el){el=document.createElement('link');el.rel=rel;document.head.appendChild(el);}
+      el.href=u192;
+    });
   }catch(e){}
-  // ── Service worker for offline caching ────────────────────────────────────
+  // ── Service worker ─────────────────────────────────────────────────────────
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v5';
+const CV='af-cache-v6';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
