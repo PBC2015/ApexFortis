@@ -334,7 +334,7 @@ function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
 function def(){return{
   tab:'lib',trainDays:3,hasRuck:true,hasRuck2:false,cw:4,
   lib:[],cycles:[],cid:null,wk:0,dy:0,
-  prs:[],prFavs:[],sel:[],stEx:null,stTab:'over',
+  prs:[],prFavs:[],sel:[],stEx:null,stTab:'over',onboarded:false,
   name:'',bw:'',unit:'kg',defRest:60,libSearch:'',
   deloadWeeks:{},homeGymDays:[],ruckUnit:'mi'
 };}
@@ -1120,8 +1120,35 @@ function render(){
   }
   rv();
 }
+let _undo=null,_undoTimer=null;
+function saveUndo(desc){
+  _undo={data:JSON.stringify({cycles:S.cycles,prs:S.prs,deloadWeeks:S.deloadWeeks}),desc};
+  let btn=document.getElementById('undo-float');
+  if(!btn){
+    btn=document.createElement('button');btn.id='undo-float';
+    btn.style.cssText='position:fixed;bottom:74px;left:12px;z-index:400;height:36px;padding:0 14px;border-radius:18px;background:#0f1e30;border:1.5px solid var(--b2);color:var(--t2);font-family:var(--fn);font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:opacity .2s';
+    btn.onclick=doUndo;
+    document.body.appendChild(btn);
+  }
+  btn.textContent='↩ Undo: '+desc;
+  btn.style.opacity='1';btn.style.pointerEvents='auto';
+  if(_undoTimer)clearTimeout(_undoTimer);
+  _undoTimer=setTimeout(clearUndo,8000);
+}
+function doUndo(){
+  if(!_undo)return;
+  const r=JSON.parse(_undo.data);
+  S.cycles=r.cycles;S.prs=r.prs;S.deloadWeeks=r.deloadWeeks;
+  clearUndo();save();rv();notify('Undone');
+}
+function clearUndo(){
+  _undo=null;
+  if(_undoTimer){clearTimeout(_undoTimer);_undoTimer=null;}
+  const btn=document.getElementById('undo-float');
+  if(btn){btn.style.opacity='0';btn.style.pointerEvents='none';}
+}
 function nav(t){
-  // Clear any pending destructive confirms when leaving Train tab
+  clearUndo();
   Object.keys(exDelTimers||{}).forEach(id=>clearTimeout(exDelTimers[id]));
   exDelPending={};exDelTimers={};
   S.tab=t;save();render();
@@ -1575,6 +1602,7 @@ function saveCycName(id,val){
 }
 function deleteCycle(id){
   const name=(S.cycles.find(c=>c.id===id)||{}).name||'Block';
+  saveUndo('Delete '+name);
   S.cycles=S.cycles.filter(c=>c.id!==id);
   if(S.cid===id)S.cid=S.cycles[S.cycles.length-1]?.id||null;
   save();rv();notify('Deleted: '+name);
@@ -1950,7 +1978,7 @@ function flashDone(cid,w,d){
 function togDone(cid,w,d){
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
   const s=c.sessions.find(s=>s.week===w&&s.day===d);if(!s)return;
-  s.done=!s.done;if(s.done)s.missed=false;save();rv();
+  saveUndo(s.done?'Mark undone':'Mark done');s.done=!s.done;if(s.done)s.missed=false;save();rv();
   if(s.done){flashDone(cid,w,d);playDoneTone();}
 }
 function showCycleCompleteReminder(cycleName){
@@ -2002,7 +2030,7 @@ function _dismissCel(){
 function togMissed(cid,w,d){
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
   const s=c.sessions.find(s=>s.week===w&&s.day===d);if(!s)return;
-  s.missed=!s.missed;if(s.missed)s.done=false;save();rv();
+  saveUndo(s.missed?'Mark not missed':'Mark missed');s.missed=!s.missed;if(s.missed)s.done=false;save();rv();
   if(s.missed){flashMissed(cid,w,d);playMissTone();}
 }
 
@@ -2169,6 +2197,8 @@ function removeExFromSession(cid,w,d,exId){
   clearTimeout(exDelTimers[exId]);
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
   const sess=c.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
+  const rmName=sess.exercises.find(e=>e.id===exId)?.name||'exercise';
+  saveUndo('Remove '+rmName);
   sess.exercises=sess.exercises.filter(e=>e.id!==exId);
   sess.exercises.forEach((e,i)=>e.sortOrder=i);
   delete exDelPending[exId];delete exDelTimers[exId];
@@ -2453,6 +2483,7 @@ function addSet(cid,w,d,eid){
 }
 function rmSet(cid,w,d,eid,si){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
+  saveUndo('Remove set '+(si+1));
   ex.sets.splice(si,1);
   if(!ex.sets.length)ex.sets=[mkSet()];
   if(ex.supersetWith){ex.supersetWith.sets.splice(si,1);if(!ex.supersetWith.sets.length)ex.supersetWith.sets=[mkSet()];}
@@ -2554,9 +2585,32 @@ function stVol(el,cyc,sibs){
       <text x="${(x+bww/2).toFixed(1)}" y="${(Hw-6).toFixed(1)}" fill="var(--t2)" font-size="11" text-anchor="middle" font-family="Barlow Condensed" font-weight="700">${d.lbl.slice(0,8)}</text></g>`;
   }).join('');
   el.innerHTML=`<div class="card"><div class="lbl mb8">Volume by Cycle</div>
-    <div class="scrollx"><svg width="${Ww}" height="${Hw}" viewBox="0 0 ${Ww} ${Hw}" style="display:block">
-      <line x1="0" y1="${pTw+cHw}" x2="${Ww}" y2="${pTw+cHw}" stroke="var(--b)" stroke-width="1"/>${wBars}
-    </svg></div></div>
+    <div class="scrollx"><svg width="${Ww}" height="${Hw}" viewBox="0 0 ${Ww} ${Hw}" style="display:block;overflow:visible">
+      <line x1="0" y1="${pTw+cHw}" x2="${Ww}" y2="${pTw+cHw}" stroke="var(--b)" stroke-width="1"/>${wBars}${(()=>{
+        if(cycVol.length<2)return'';
+        const n=cycVol.length,ys=cycVol.map(d=>d.v);
+        const mx=(n-1)/2,my=ys.reduce((a,b)=>a+b,0)/n;
+        const num=ys.reduce((a,y,i)=>a+(i-mx)*(y-my),0);
+        const den=ys.reduce((a,_,i)=>a+(i-mx)**2,0)||1;
+        const slope=num/den,intercept=my-slope*mx;
+        const barCx=i=>i*(Ww/n)+(Ww/n)/2;
+        const yAt=v=>pTw+cHw-Math.max(0,Math.min(cHw,(v/mWV)*cHw));
+        const x0=barCx(0),x1=barCx(n-1);
+        const y0=yAt(slope*0+intercept),y1=yAt(slope*(n-1)+intercept);
+        const rising=slope>mWV*0.005;const falling=slope<-mWV*0.005;
+        const col=rising?'#6dcc8a':falling?'#e06060':'rgba(201,168,76,.5)';
+        return`<line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="${col}" stroke-width="2" stroke-dasharray="5,3" opacity=".8"/>`;
+      })()}
+    </svg></div>
+    <div style="font-size:11px;color:var(--t2);font-family:var(--fn);margin-top:4px">${(()=>{
+      if(cycVol.length<2)return'';
+      const ys=cycVol.map(d=>d.v),n=ys.length;
+      const mx=(n-1)/2,my=ys.reduce((a,b)=>a+b,0)/n;
+      const slope=ys.reduce((a,y,i)=>a+(i-mx)*(y-my),0)/(ys.reduce((a,_,i)=>a+(i-mx)**2,0)||1);
+      const rising=slope>my*0.02,falling=slope<-my*0.02;
+      return rising?'<span style="color:#6dcc8a">▲ Volume trending up</span>':falling?'<span style="color:#e06060">▼ Volume trending down</span>':'<span style="color:var(--t2)">— Volume stable</span>';
+    })()}</div>
+  </div>
   <div class="card"><div class="lbl mb8">Exercise Volume</div>
     <select id="stex" onchange="setStEx(this.value)" class="mb12">${exNames.map(n=>`<option value="${n}" ${n===selEx?'selected':''}>${n}</option>`).join('')}</select>
     <div id="vchart"></div></div>`;
@@ -2905,8 +2959,49 @@ function savePRDate(id,val){
   prDateEdit=null;save();rv();
 }
 function failStyle(s){return s&&s.failed?'color:#e06060;border-color:#a04040':'';}
+function showOnboarding(){
+  if(document.getElementById('ob-ov'))return;
+  const screens=[
+    {icon:'af',title:'Welcome to Apex Fortis',body:'Your conjugate strength training companion. Built around the max effort and dynamic effort method — programme generation, session logging, progressive overload, and lifetime PR tracking.'},
+    {icon:'⊛',title:'Library',body:'Your exercise pool. Add, edit, and categorise movements across Push, Pull, Squat, Functional, and Accessories. Select which exercises go into your training plan.'},
+    {icon:'▦',title:'Plan',body:'Set your training days, number of weeks, and ruck sessions. Apex Fortis generates the full block structure. Generate a new cycle to start training.'},
+    {icon:'⏱',title:'Train',body:'Log every session. Weight, reps, RPE, rest, equipment, and notes per set. The app shows progressive targets based on your previous performance — tap Apply to use them.'},
+    {icon:'▸',title:'Stats & PRs',body:'Overview, Volume, Cycle progression, Ruck data, Estimated 1RMs, PR records, and progress charts — all pooled across your full training history.'}
+  ];
+  let step=0;
+  const el=document.createElement('div');
+  el.id='ob-ov';
+  el.style.cssText='position:fixed;inset:0;z-index:9995;background:radial-gradient(ellipse at 50% 38%,#0f2238 0%,#0c1828 68%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px';
+  document.body.appendChild(el);
+  function dismiss(){el.remove();S.onboarded=true;save();}
+  function render(){
+    const s=screens[step],last=step===screens.length-1;
+    const iconHtml=s.icon==='af'
+      ?`<div style="width:80px;height:80px;border-radius:16px;border:1.5px solid rgba(201,168,76,.5);display:flex;align-items:center;justify-content:center;margin:0 auto 20px"><span style="font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:#c9a84c">AF</span></div>`
+      :`<div style="font-size:52px;margin-bottom:16px;text-align:center">${s.icon}</div>`;
+    const dots=screens.map((_,i)=>`<div style="width:${i===step?20:7}px;height:7px;border-radius:4px;background:${i===step?'#c9a84c':'rgba(201,168,76,.25)'};transition:width .25s"></div>`).join('');
+    el.innerHTML=`
+      <button id="ob-skip" style="position:absolute;top:20px;right:20px;background:none;border:none;color:var(--t2);font-family:var(--fn);font-size:12px;cursor:pointer;letter-spacing:.04em">Skip</button>
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;max-width:320px">
+        ${iconHtml}
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:#d4b86a;letter-spacing:.04em;margin-bottom:12px">${s.title}</div>
+        <div style="font-size:14px;color:var(--t2);line-height:1.6">${s.body}</div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:24px">${dots}</div>
+      <div style="display:flex;gap:10px;width:100%;max-width:280px">
+        ${step>0?`<button id="ob-back" style="flex:1;height:46px;background:var(--bg4);border:1px solid var(--b2);border-radius:8px;color:var(--t2);font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;cursor:pointer">← Back</button>`:''}
+        <button id="ob-next" style="flex:2;height:46px;background:${last?'rgba(201,168,76,.15)':'var(--bg4)'};border:1.5px solid ${last?'var(--g)':'var(--b2)'};border-radius:8px;color:${last?'#d4b86a':'var(--t2)'};font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;cursor:pointer">${last?'Get Started →':'Next →'}</button>
+      </div>`;
+    el.querySelector('#ob-skip').onclick=dismiss;
+    el.querySelector('#ob-next').onclick=()=>{if(step<screens.length-1){step++;render();}else dismiss();};
+    const back=el.querySelector('#ob-back');
+    if(back)back.onclick=()=>{step--;render();};
+  }
+  render();
+}
 function toggleFail(cid,w,d,eid,si){
   const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
+  saveUndo('Toggle failed set');
   const s=ex.sets[si];
   s.failed=!s.failed;
   if(s.failed){
@@ -2942,6 +3037,7 @@ function vSettings(c){
     </div>
   </div>
   <div class="card">
+    <button class="btn btns mb12" style="width:100%" onclick="showOnboarding()">⊛ Show Introduction</button>
     <div class="sect">Install as App</div>
     <div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.6">
       Install Apex Fortis on your home screen for a full-screen, offline-capable experience.
@@ -3081,58 +3177,57 @@ function dlApp(){
 // ─── PWA MANIFEST SETUP ───────────────────────────────────────────────────────
 function setupPWA(){
   // ── Generate AF logo icon via Canvas ──────────────────────────────────────
-  function drawIcon(size){
+  function drawIcon(size,padding){
+    padding=padding||0;
     const cv=document.createElement('canvas');cv.width=cv.height=size;
     const ctx=cv.getContext('2d');
-    const r=size*0.18;
-    // Navy rounded background
+    // Full canvas fill — most reliable approach, no path needed
     ctx.fillStyle='#0c1828';
-    ctx.beginPath();
-    ctx.moveTo(r,0);ctx.lineTo(size-r,0);
-    ctx.quadraticCurveTo(size,0,size,r);
-    ctx.lineTo(size,size-r);
-    ctx.quadraticCurveTo(size,size,size-r,size);
-    ctx.lineTo(r,size);
-    ctx.quadraticCurveTo(0,size,0,size-r);
-    ctx.lineTo(0,r);
-    ctx.quadraticCurveTo(0,0,r,0);
-    ctx.closePath();ctx.fill();
-    // Thin gold border
-    ctx.strokeStyle='rgba(201,168,76,0.55)';ctx.lineWidth=Math.max(2,size*0.022);ctx.stroke();
-    // "AF" — use system bold fonts only (Barlow may not be loaded yet)
+    ctx.fillRect(0,0,size,size);
+    // Inner gold border (inset by padding)
+    const p=Math.max(2,size*0.025)+padding;
+    ctx.strokeStyle='rgba(201,168,76,0.55)';
+    ctx.lineWidth=Math.max(2,size*0.018);
+    ctx.strokeRect(p,p,size-p*2,size-p*2);
+    // "AF" text — system fonts only, centred
     ctx.fillStyle='#c9a84c';
-    const fs=Math.round(size*0.52);
-    ctx.font=`900 ${fs}px "Arial Black","Arial Narrow Bold",Impact,Arial,sans-serif`;
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('AF',size/2,size*0.52);
+    const fs=Math.round((size-padding*2)*0.52);
+    ctx.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText('AF',size/2,size*0.51);
     return cv;
   }
   try{
-    const cv192=drawIcon(192),cv512=drawIcon(512);
-    cv192.toBlob(b192=>{
-      const u192=URL.createObjectURL(b192);
-      cv512.toBlob(b512=>{
-        const u512=URL.createObjectURL(b512);
-        // PWA manifest
-        const manifest={name:'Apex Fortis',short_name:'Apex Fortis',
-          description:'Conjugate Strength Training',
-          start_url:'.',display:'standalone',
-          background_color:'#0c1828',theme_color:'#0c1828',
-          orientation:'portrait',
-          icons:[
-            {src:u192,sizes:'192x192',type:'image/png',purpose:'any maskable'},
-            {src:u512,sizes:'512x512',type:'image/png',purpose:'any maskable'}
-          ]
-        };
-        const mBlob=new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
-        const link=document.getElementById('pwa-manifest');
-        if(link)link.href=URL.createObjectURL(mBlob);
-        // Favicon + apple touch icon
-        ['icon','apple-touch-icon'].forEach(rel=>{
-          let el=document.querySelector(`link[rel='${rel}']`);
-          if(!el){el=document.createElement('link');el.rel=rel;document.head.appendChild(el);}
-          el.href=u192;
-        });
+    // Maskable icon: full bleed (no padding) — for Android adaptive icon system
+    // Any icon: modest padding — for contexts that show the icon as-is
+    const cvMask=drawIcon(512,0),cvAny=drawIcon(512,20),cv192=drawIcon(192,0);
+    cvMask.toBlob(bMask=>{
+      cvAny.toBlob(bAny=>{
+        cv192.toBlob(b192=>{
+          const uMask=URL.createObjectURL(bMask);
+          const uAny=URL.createObjectURL(bAny);
+          const u192=URL.createObjectURL(b192);
+          const manifest={name:'Apex Fortis',short_name:'Apex Fortis',
+            description:'Conjugate Strength Training',
+            start_url:'.',display:'standalone',
+            background_color:'#0c1828',theme_color:'#0c1828',
+            orientation:'portrait',
+            icons:[
+              {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
+              {src:uMask,sizes:'512x512',type:'image/png',purpose:'maskable'},
+              {src:uAny,sizes:'512x512',type:'image/png',purpose:'any'}
+            ]
+          };
+          const mBlob=new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
+          const link=document.getElementById('pwa-manifest');
+          if(link)link.href=URL.createObjectURL(mBlob);
+          ['icon','apple-touch-icon'].forEach(rel=>{
+            let el=document.querySelector(`link[rel='${rel}']`);
+            if(!el){el=document.createElement('link');el.rel=rel;document.head.appendChild(el);}
+            el.href=u192;
+          });
+        },'image/png');
       },'image/png');
     },'image/png');
   }catch(e){}
@@ -3140,7 +3235,7 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v4';
+const CV='af-cache-v5';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
@@ -3166,6 +3261,7 @@ self.addEventListener('fetch',e=>{
 setupPWA();
 render();
 prewarmAudio();
+if(!S.onboarded)setTimeout(showOnboarding,600);
 // ─── SPLASH SCREEN ────────────────────────────────────────────────────────────
 (function(){
   const spl=document.createElement('div');
