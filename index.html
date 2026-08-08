@@ -530,16 +530,13 @@ function prewarmAudio(){
 }
 function startTimer(secs,lbl){
   if(TM.iv)clearInterval(TM.iv);
-  if(TM._t20)clearTimeout(TM._t20);
-  if(TM._t10)clearTimeout(TM._t10);
-  if(TM._tvib)clearTimeout(TM._tvib);
-  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,warned:false,warned20:false,_t20:null,_t10:null,_tvib:null};
+  ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
+  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,_t20:null,_t10:null,_tvib:null,_tvend:null};
   const tb=document.getElementById('tbar');
   if(tb){tb.classList.add('vis');const tl=document.getElementById('tl');if(tl)tl.textContent=lbl||'Rest Timer';}
-  // Pre-schedule audio via Web Audio precision clock
+  // Pre-schedule end-of-timer alarm via Web Audio (precise)
   try{
-    const ac=getAC();
-    const now=ac.currentTime;
+    const ac=getAC();const now=ac.currentTime;
     function tone(freq,t,dur,vol=0.9){
       const o=ac.createOscillator(),g=ac.createGain();
       o.connect(g);g.connect(ac.destination);
@@ -548,25 +545,30 @@ function startTimer(secs,lbl){
       g.gain.exponentialRampToValueAtTime(0.001,t+dur);
       o.start(t);o.stop(t+dur+0.05);
     }
-    // 10s warning beep — scheduled exactly
-    if(secs>10){tone(880,now+(secs-10),0.18,0.9);}
-    // End-of-timer alarm — scheduled exactly
     const et=now+secs;
     tone(660,et,0.25);tone(770,et+0.32,0.25);tone(990,et+0.65,0.3);tone(1100,et+1.0,0.55);
   }catch(e){}
-  // Speech synthesis needs lead time — fire 400ms before target
-  if(secs>20){
+  // 20s verbal — fresh speech in setTimeout
+  if(secs>=20){
     TM._t20=setTimeout(()=>{
       try{const u=new SpeechSynthesisUtterance('twenty');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
     },Math.max(0,(secs-20)*1000-400));
   }
-  if(secs>10){
+  // 10s beep + verbal + vibration — fresh AudioContext in setTimeout (survives suspension)
+  if(secs>=10){
     TM._t10=setTimeout(()=>{
+      try{
+        const ac2=new(window.AudioContext||window.webkitAudioContext)();
+        const o=ac2.createOscillator(),g=ac2.createGain();
+        o.connect(g);g.connect(ac2.destination);
+        o.frequency.value=880;o.type='triangle';
+        g.gain.setValueAtTime(0.9,ac2.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001,ac2.currentTime+0.18);
+        o.start();o.stop(ac2.currentTime+0.2);
+      }catch(e){}
       try{const u=new SpeechSynthesisUtterance('ten');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
-    },Math.max(0,(secs-10)*1000-400));
-    TM._tvib=setTimeout(()=>{
       if(navigator.vibrate)navigator.vibrate([120]);
-    },(secs-10)*1000);
+    },Math.max(0,(secs-10)*1000-300));
   }
   // End vibration
   TM._tvend=setTimeout(()=>{
@@ -768,11 +770,12 @@ function showWeekOverview(){
     }else{
       const sorted=[...s.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
       exList=sorted.map(e=>{
+        const isMissed=e.sets&&e.sets.length>0&&e.sets.every(s=>s.failed);
         const badge=e.skill==='Accessories'?cb(e.category):sb(e.skill);
         const loggedSet=(e.sets||[]).filter(x=>x.weight).sort((a,b)=>parseFloat(b.weight)-parseFloat(a.weight))[0];
         const logged=loggedSet?`<span style="color:var(--t2);font-size:11px;margin-left:4px">${loggedSet.weight}${wLabel(e)}×${loggedSet.reps||'?'}</span>`:'';
         return`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:0.5px solid var(--b2)">
-          <div style="flex:1;font-family:var(--fn);font-size:13px">${e.name}${logged}</div>
+          <div style="flex:1;font-family:var(--fn);font-size:13px;${isMissed?'color:#e06060':''}">${e.name}${logged}</div>
           <div style="flex-shrink:0">${badge}</div>
         </div>`;
       }).join('');
@@ -1016,11 +1019,17 @@ function genCycle(selIds,weeks,rotOff=0){
       sessions.push(mkLong(w,0,squat,true));
       sessions.push(mkShort(w,1));
       sessions.push(mkLong(w,2,pull,false));
-    } else {
+    } else if(td===4){
       sessions.push(mkLong(w,0,squat,true));
       sessions.push(mkShort(w,1));
       sessions.push(mkLong(w,2,pull,false));
       sessions.push(mkShort(w,3));
+    } else if(td===5){
+      sessions.push(mkLong(w,0,squat,true));
+      sessions.push(mkShort(w,1));
+      sessions.push(mkLong(w,2,pull,false));
+      sessions.push(mkShort(w,3));
+      sessions.push(mkLong(w,4,w%2===0?squat:pull,w%2===0));
     }
     if(hr)sessions.push({week:w,day:td,type:'ruck',done:false,notes:'',isHomeGym:false,exercises:[],ruckData:{weight:'',distance:'',duration:'',notes:'',equipment:''}});
     if(hr&&S.hasRuck2)sessions.push({week:w,day:td+1,type:'ruck',done:false,notes:'',isHomeGym:false,exercises:[],ruckData:{weight:'',distance:'',duration:'',notes:'',equipment:''}});
@@ -1164,7 +1173,7 @@ function vLib(c){
   <div class="stitle">Exercise Library</div>
   ${!S.lib.length?`<div class="card" style="border-color:var(--gd);text-align:center">
     <div style="font-family:var(--fn);font-size:14px;color:var(--t2);margin-bottom:10px">Load sample exercises or add your own to get started</div>
-    <button class="btnp" style="width:100%" onclick="loadSamples();nav('lib')">↓ Load 20 Sample Exercises</button>
+    <button class="btnp" style="width:100%" onclick="loadSamples();nav('lib')">↓ Load 92 Exercises into Library</button>
   </div>`:''}
   <div class="card">
     <div class="lbl">Add Exercise</div>
@@ -1412,9 +1421,9 @@ function vCyc(c){
   <div class="stitle">Plan Cycle</div>
   <div class="card">
     <div class="sect">Training Week</div>
-    <div class="lbl mb6">Training days per week</div>
+    <div class="lbl mb6">Resistance training days per week</div>
     <div class="tgg mb10">
-      ${[1,2,3,4].map(n=>`<button class="tgo ${td===n?'on':''}" onclick="setTrainDays(${n})">${n} Day${n>1?'s':''}</button>`).join('')}
+      ${[1,2,3,4,5].map(n=>`<button class="tgo ${td===n?'on':''}" onclick="setTrainDays(${n})">${n} Day${n>1?'s':''}</button>`).join('')}
     </div>
     <div class="lbl mb6">Ruck Session</div>
     <div class="tgg mb10">
@@ -2168,12 +2177,19 @@ function exSkillOrder(ex){return ROLE_SORT[ex.role]!==undefined?ROLE_SORT[ex.rol
 function logSetAsPR(name,cid,w,d,eid,si){
   const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
   const s=ex.sets[si];
+  // Toggle off — remove existing PR
+  if(s.prId){
+    S.prs=S.prs.filter(p=>p.id!==s.prId);
+    delete s.prId;
+    save();rv();notify('PR removed');return;
+  }
   if(s.failed){notify('Cannot log a missed lift as a PR');return;}
-  const kg=parseFloat(s.weight),reps=parseInt(s.reps);
+  const kg=parseFloat(s.weight),reps=parseFloat(s.reps);
   if(!kg||!reps){notify('Fill in weight and '+metricLbl(ex.metric||'reps')+' first');return;}
-  const notes=s.notes||'';
-  S.prs.push({id:uid(),exercise:name,kg,reps,date:new Date().toLocaleDateString('en-GB'),notes});
-  save();notify('★ PR logged — '+name+' '+kg+uw()+' × '+reps+(ex.metric==='metres'?'m':ex.metric==='seconds'?'s':'r'));
+  const id=uid();
+  S.prs.push({id,exercise:name,kg,reps,date:new Date().toLocaleDateString('en-GB'),notes:s.notes||'',metric:ex.metric||'reps'});
+  s.prId=id;
+  save();rv();notify('★ PR logged — '+name+' '+kg+uw()+' × '+reps+(ex.metric==='metres'?'m':ex.metric==='seconds'?'s':'r'));
 }
 function rSess(sess,cid){
   if(!sess.exercises.length)return'<div class="empty">—<h3>No exercises planned</h3></div>';
@@ -2299,7 +2315,7 @@ function rEx(ex,sess,cid){
         <button class="rest-btn" style="flex:1;margin-top:0" onclick="startRest('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">
           ■ Rest · ${s.rest||fmtS(S.defRest||60)}
         </button>
-        ${!s.failed?`<button class="pr-btn" title="Log as PR" onclick="logSetAsPR('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${si})">🏆</button>`:''}
+        ${!s.failed?`<button class="pr-btn ${s.prId?'btnon':''}" title="${s.prId?'Remove PR':'Log as PR'}" onclick="logSetAsPR('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${si})">🏆</button>`:''}
         <button class="fail-btn ${s.failed?'on':''}" onclick="toggleFail('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">
           ✕${s.failed?' MISSED':' MISS?'}
         </button>
@@ -2401,10 +2417,14 @@ function rSSEx(ex,sess,cid){
   });
   const lastSa=ex.sets[ex.sets.length-1];
   const lastRest=lastSa?.rest?fmtS(parseInt(lastSa.rest)||parseRest(lastSa.rest)):fmtS(S.defRest||60);
+  const allFailed=ex.sets.length>0&&ex.sets.every(s=>s.failed);
   h+=`<div style="display:flex;gap:6px;margin-top:8px">
     <button class="rest-btn" style="flex:1;margin-top:0" onclick="startRest('${cid}',${sess.week},${sess.day},'${ex.id}',${ex.sets.length-1})">⏱ Rest · ${lastRest}</button>
     <button class="pr-btn" title="Log A as PR" onclick="logSetAsPR('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${ex.sets.length-1})">🏆</button>
   </div>
+  <button class="btn btns" style="width:100%;margin-top:8px;${allFailed?'color:#e06060;border-color:#c04040':''}" onclick="toggleSSFail('${cid}',${sess.week},${sess.day},'${ex.id}')">
+    ✕ ${allFailed?'Missed — tap to undo':'Miss Superset?'}
+  </button>
   <button class="btn btns" style="width:100%;margin-top:4px" onclick="addSet('${cid}',${sess.week},${sess.day},'${ex.id}')">+ Add Set (A + B)</button>
   ${exDelPending[ex.id]
     ?`<div style="display:flex;gap:6px;margin-top:8px">
@@ -2959,6 +2979,43 @@ function savePRDate(id,val){
   prDateEdit=null;save();rv();
 }
 function failStyle(s){return s&&s.failed?'color:#e06060;border-color:#a04040':'';}
+function showWelcomeDemo(){
+  if(document.getElementById('demo-ov'))return;
+  const steps=[
+    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 92 exercises covering Squat, Pull, Push, Functional, and all Accessory categories to your pool.',action:'Go to Library',fn:"nav('lib')"},
+    {n:'2',title:'Select Your Exercises',body:'In the Library, tap the checkbox next to each exercise you want included in your programme. Selected exercises appear in your Plan. You can add custom exercises at any time.',action:null},
+    {n:'3',title:'Configure Your Plan',body:'Go to the <b>Plan tab</b>. Set your <b>training days per week</b> (1–4), <b>number of weeks</b> (1–4), and whether to include a Ruck session. These define your training block structure.',action:"Go to Plan",fn:"nav('cyc')"},
+    {n:'4',title:'Generate Your Cycle',body:'On the Plan tab, tap <b>Generate Cycle</b>. Apex Fortis builds the full session structure — Max Effort and Dynamic days, exercise rotation, and ruck if selected. All done automatically.',action:null},
+    {n:'5',title:'Start Training',body:'Go to the <b>Train tab</b>. Navigate with the Week and Day pills. Tap an exercise card to expand it, log your weight, reps, RPE, and rest. Tap the ⏱ button to start your rest timer.',action:'Go to Train',fn:"nav('train')"}
+  ];
+  let step=0;
+  const el=document.createElement('div');
+  el.id='demo-ov';
+  el.style.cssText='position:fixed;inset:0;z-index:9995;background:radial-gradient(ellipse at 50% 30%,#0f2238 0%,#0c1828 68%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 24px';
+  document.body.appendChild(el);
+  function render(){
+    const s=steps[step],last=step===steps.length-1;
+    const dots=steps.map((_,i)=>`<div style="width:${i===step?20:7}px;height:7px;border-radius:4px;background:${i===step?'#c9a84c':'rgba(201,168,76,.25)'};transition:width .25s"></div>`).join('');
+    el.innerHTML=`
+      <button id="dm-skip" style="position:absolute;top:20px;right:20px;background:none;border:none;color:var(--t2);font-family:var(--fn);font-size:12px;cursor:pointer;letter-spacing:.04em">Close ✕</button>
+      <div style="flex:1;display:flex;flex-direction:column;justify-content:center;max-width:320px;width:100%">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;color:rgba(201,168,76,.5);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Step ${s.n} of ${steps.length}</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:21px;font-weight:800;color:#d4b86a;letter-spacing:.04em;margin-bottom:12px">${s.title}</div>
+        <div style="font-size:14px;color:var(--t2);line-height:1.7">${s.body}</div>
+        ${s.action?`<button id="dm-act" style="margin-top:16px;height:40px;background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.35);border-radius:7px;color:#c9a84c;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.04em">→ ${s.action}</button>`:''}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:24px">${dots}</div>
+      <div style="display:flex;gap:10px;width:100%;max-width:280px">
+        ${step>0?`<button id="dm-back" style="flex:1;height:46px;background:var(--bg4);border:1px solid var(--b2);border-radius:8px;color:var(--t2);font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;cursor:pointer">← Back</button>`:''}
+        <button id="dm-next" style="flex:2;height:46px;background:${last?'rgba(201,168,76,.15)':'var(--bg4)'};border:1.5px solid ${last?'var(--g)':'var(--b2)'};border-radius:8px;color:${last?'#d4b86a':'var(--t2)'};font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;cursor:pointer">${last?'Done ✓':'Next →'}</button>
+      </div>`;
+    el.querySelector('#dm-skip').onclick=()=>el.remove();
+    el.querySelector('#dm-next').onclick=()=>{if(step<steps.length-1){step++;render();}else el.remove();};
+    const back=el.querySelector('#dm-back');if(back)back.onclick=()=>{step--;render();};
+    const act=el.querySelector('#dm-act');if(act&&s.fn)act.onclick=()=>{el.remove();eval(s.fn);};
+  }
+  render();
+}
 function showOnboarding(){
   if(document.getElementById('ob-ov'))return;
   const screens=[
@@ -2999,6 +3056,14 @@ function showOnboarding(){
   }
   render();
 }
+function toggleSSFail(cid,w,d,eid){
+  const ex=gEx(cid,w,d,eid);if(!ex)return;
+  saveUndo('Toggle superset missed');
+  const allFailed=ex.sets.length>0&&ex.sets.every(s=>s.failed);
+  ex.sets.forEach(s=>s.failed=!allFailed);
+  if(ex.supersetWith)(ex.supersetWith.sets||[]).forEach(s=>s.failed=!allFailed);
+  save();rv();
+}
 function toggleFail(cid,w,d,eid,si){
   const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
   saveUndo('Toggle failed set');
@@ -3037,7 +3102,8 @@ function vSettings(c){
     </div>
   </div>
   <div class="card">
-    <button class="btn btns mb12" style="width:100%" onclick="showOnboarding()">⊛ Show Introduction</button>
+    <button class="btn btns mb8" style="width:100%" onclick="showOnboarding()">⊛ Show Introduction</button>
+    <button class="btn btns mb12" style="width:100%" onclick="showWelcomeDemo()">▶ Getting Started Guide</button>
     <div class="sect">Install as App</div>
     <div style="font-size:13px;color:var(--t2);margin-bottom:12px;line-height:1.6">
       Install Apex Fortis on your home screen for a full-screen, offline-capable experience.
@@ -3061,7 +3127,7 @@ function vSettings(c){
   <div class="card">
     <div class="sect">Starter Library</div>
     <div style="font-size:13px;color:var(--t2);margin-bottom:10px;line-height:1.5">20 exercises across all skill categories to get started quickly.</div>
-    <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Sample Exercises</button>
+    <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Exercise Library (92 movements)</button>
   </div>
   <div class="card">
     <div class="sect">Data Management</div>
@@ -3186,7 +3252,7 @@ function setupPWA(){
       ctx.fillRect(0,0,size,size);
       // Gold AF — system fonts, large and centred
       ctx.fillStyle='#c9a84c';
-      ctx.font=`900 ${Math.floor(size*0.52)}px Arial`;
+      ctx.font=`900 ${Math.floor(size*0.58)}px Arial`;
       ctx.textAlign='center';
       ctx.textBaseline='middle';
       ctx.fillText('AF',size/2,size/2);
@@ -3231,10 +3297,12 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v6';
+const CV='af-cache-v7';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
+  if(e.request.url.startsWith('blob:'))return;
+  if(e.request.url.startsWith('chrome-extension:'))return;
   e.respondWith(
     caches.open(CV).then(cache=>
       cache.match(e.request).then(resp=>{
