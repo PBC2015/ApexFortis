@@ -11,8 +11,40 @@
 <meta name="description" content="Apex Fortis — Conjugate Strength Training">
 <title>Apex Fortis</title>
 <link id="pwa-manifest" rel="manifest">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='90' fill='%230c1828'/%3E%3Crect x='14' y='14' width='484' height='484' rx='76' fill='none' stroke='%23c9a84c' stroke-width='11' opacity='.6'/%3E%3Ctext x='256' y='390' font-family='Arial Black%2CArial%2Csans-serif' font-size='270' font-weight='900' text-anchor='middle' dominant-baseline='auto' fill='%23c9a84c'%3EAF%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='90' fill='%230c1828'/%3E%3Crect x='14' y='14' width='484' height='484' rx='76' fill='none' stroke='%23c9a84c' stroke-width='11' opacity='.6'/%3E%3Ctext x='256' y='390' font-family='Arial Black%2CArial%2Csans-serif' font-size='270' font-weight='900' text-anchor='middle' dominant-baseline='auto' fill='%23c9a84c'%3EAF%3C/text%3E%3C/svg%3E">
+<script>
+// Runs synchronously during HTML parsing — manifest is set before Chrome evaluates installability
+(function(){
+  try{
+    function mkIcon(sz){
+      var cv=document.createElement('canvas');cv.width=cv.height=sz;
+      var ctx=cv.getContext('2d');
+      ctx.fillStyle='#0c1828';ctx.fillRect(0,0,sz,sz);
+      ctx.fillStyle='#c9a84c';
+      ctx.font='900 '+(Math.floor(sz*0.72))+'px Arial';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('AF',sz/2,sz/2);
+      var d=cv.toDataURL('image/png'),b=atob(d.split(',')[1]);
+      var u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
+      return URL.createObjectURL(new Blob([u],{type:'image/png'}));
+    }
+    var u192=mkIcon(192),u512=mkIcon(512);
+    var m={name:'Apex Fortis',short_name:'Apex Fortis',description:'Conjugate Strength Training',
+      start_url:location.origin+location.pathname,
+      scope:location.origin+location.pathname.replace(/[^\/]*$/,''),
+      display:'standalone',background_color:'#0c1828',theme_color:'#0c1828',orientation:'portrait',
+      icons:[
+        {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
+        {src:u512,sizes:'512x512',type:'image/png',purpose:'maskable'},
+        {src:u512,sizes:'512x512',type:'image/png',purpose:'any'}
+      ]};
+    var mUrl=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/manifest+json'}));
+    document.getElementById('pwa-manifest').href=mUrl;
+    // Apple touch icon
+    var ati=document.createElement('link');ati.rel='apple-touch-icon';ati.href=u192;
+    document.head.appendChild(ati);
+  }catch(e){}
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
@@ -1503,25 +1535,53 @@ function vCyc(c){
     <div class="prog-bar"><div class="prog-fill" style="width:${Math.round(cyc.sessions.filter(s=>s.done).length/cyc.sessions.length*100)}%"></div></div>
     <div style="font-size:11px;color:var(--t2);margin-top:4px;font-family:var(--fn)">${cyc.sessions.filter(s=>s.done).length}/${cyc.sessions.length} sessions complete</div>
   </div>`:''}
-  ${S.cycles.length>1?`<div class="lbl mb8">History</div>${[...S.cycles].reverse().filter(cc=>cc.id!==S.cid).map(cc=>{
-    const isPending=cycDelPending===cc.id;
-    return`<div class="card-i" style="display:flex;align-items:center;gap:10px${isPending?';border-color:#c04040;background:rgba(160,40,40,.07)':''}">
-      <div style="flex:1">
-        ${cycNameEdit===cc.id
-          ?`<div style="display:flex;gap:6px;margin-bottom:2px"><input id="cycname-edit-${cc.id}" class="ins" style="font-size:13px;padding:5px 8px" value="${cc.name||cc.weeks+'W Block'}" onkeydown="if(event.key==='Enter')saveCycName('${cc.id}',this.value)"><button class="btn btns" style="padding:0 10px;font-size:12px" onclick="saveCycName('${cc.id}',document.getElementById('cycname-edit-${cc.id}').value)">✓</button></div>`
-          :`<div style="display:flex;align-items:center;gap:6px"><span style="font-family:var(--fn);font-size:14px;font-weight:700;color:var(--g2)">${cc.name||cc.weeks+'W Block'} · ${cc.startDate}</span><button style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--t2);padding:0;line-height:1" onclick="startEditCycName('${cc.id}')" title="Rename">✎</button></div>`}
-        <div style="font-size:12px;color:var(--t2);margin-top:2px">${cc.sessions.filter(s=>s.done).length}/${cc.sessions.length} sessions</div>
-        <div class="prog-bar mt4" style="width:100px;margin-top:4px"><div class="prog-fill" style="width:${Math.round(cc.sessions.filter(s=>s.done).length/cc.sessions.length*100)}%"></div></div>
-      </div>
-      ${isPending
-        ?`<div style="display:flex;gap:4px;align-items:center;flex-shrink:0">
-            <span style="font-size:11px;color:#e06060;font-weight:800">Delete?</span>
-            <button class="btn btnd btns" style="font-size:11px;height:28px;padding:0 8px;font-weight:800" onclick="cycDelTap('${cc.id}')">Yes</button>
-            <button class="btn btns" style="font-size:11px;height:28px;padding:0 8px" onclick="cycDelPending=null;rv()">No</button>
-          </div>`
-        :`<button class="btn btnd btnxs" style="font-size:15px;color:#e05050;flex-shrink:0" onclick="cycDelTap('${cc.id}')">✕</button>`}
-    </div>`;
-  }).join('')}`:''}`;
+  ${(()=>{
+    if(S.cycles.length<2)return'';
+    const groups={};
+    S.cycles.forEach(cc=>{const rid=cc.rotationId||cc.id;if(!groups[rid])groups[rid]=[];groups[rid].push(cc);});
+    const planEntries=Object.entries(groups).sort((a,b)=>Math.max(...b[1].map(c=>c.cycleNumber||1))-Math.max(...a[1].map(c=>c.cycleNumber||1)));
+    return`<div class="lbl mb8">All Training Plans</div>`+planEntries.map(([rid,cycles])=>{
+      const sorted=cycles.sort((a,b)=>(a.cycleNumber||1)-(b.cycleNumber||1));
+      const isActive=sorted.some(c=>c.id===S.cid);
+      const planName=(sorted[0].name||'Block').replace(/\s*[—\-]\s*Cycle\s*\d+$/i,'').trim()||'Block';
+      const doneT=sorted.reduce((t,c)=>t+c.sessions.filter(s=>s.done).length,0);
+      const totalT=sorted.reduce((t,c)=>t+c.sessions.length,0);
+      const pct=totalT?Math.round(doneT/totalT*100):0;
+      const isOpen=(planOpen[rid]!==false&&isActive)||planOpen[rid]===true;
+      const latestCyc=sorted[sorted.length-1];
+      const nextCycNum=(latestCyc.cycleNumber||sorted.length)+1;
+      return`<div class="card mb8" style="padding:0;overflow:hidden">
+        <div style="padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px" onclick="planOpen['${rid}']=!planOpen['${rid}'];rv()">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-family:var(--fn);font-size:15px;font-weight:700;color:${isActive?'var(--g2)':'var(--t)'}">${planName}</span>
+              ${isActive?`<span style="font-family:var(--fn);font-size:10px;font-weight:800;color:var(--gd);letter-spacing:.06em;text-transform:uppercase">ACTIVE</span>`:''}
+            </div>
+            <div style="font-size:12px;color:var(--t2);margin-top:2px;font-family:var(--fn)">${sorted.length} cycle${sorted.length!==1?'s':''} · ${doneT}/${totalT} sessions · ${pct}%</div>
+          </div>
+          <span style="color:var(--t2);font-size:18px">${isOpen?'▾':'▸'}</span>
+        </div>
+        ${isOpen?`<div style="padding:0 14px 12px;border-top:1px solid var(--b2)">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;margin-bottom:8px">
+            ${sorted.map(cc=>{
+              const d2=cc.sessions.filter(s=>s.done).length;
+              return`<div style="background:var(--bg3);border:1.5px solid ${cc.id===S.cid?'var(--g)':'var(--b)'};border-radius:6px;padding:5px 8px;cursor:pointer;min-width:70px" onclick="switchCycle('${cc.id}')">
+                <div style="font-family:var(--fn);font-size:12px;font-weight:700;color:${cc.id===S.cid?'var(--g2)':'var(--t)'}">C${cc.cycleNumber||1}</div>
+                <div style="font-size:10px;color:var(--t2);font-family:var(--fn)">${d2}/${cc.sessions.length}</div>
+              </div>`;
+            }).join('')}
+            ${_nextCycPending===latestCyc.id
+              ?`<div style="display:flex;gap:5px;align-items:center">
+                  <div class="pill" style="background:rgba(201,168,76,.15);border:1px solid var(--g);color:var(--g2);font-weight:800;font-size:11px;padding:3px 8px;cursor:pointer;white-space:nowrap" onclick="switchCycle('${latestCyc.id}');startNextCycle('${latestCyc.id}')">✓ Add C${nextCycNum}?</div>
+                  <div class="pill" style="font-size:11px;padding:3px 8px;cursor:pointer" onclick="_nextCycPending=null;rv()">✕</div>
+                </div>`
+              :`<div class="pill" style="background:var(--bg4);border:1px dashed var(--b2);color:var(--t2);font-size:11px;padding:3px 8px;cursor:pointer;white-space:nowrap" onclick="switchCycle('${latestCyc.id}');_nextCycPending='${latestCyc.id}';rv()">+ C${nextCycNum}</div>`}
+          </div>
+          ${!isActive?`<button class="btn btns" style="width:100%;font-size:12px" onclick="switchCycle('${latestCyc.id}');nav('train')">→ Resume ${planName}</button>`:''}
+        </div>`:''}
+      </div>`;
+    }).join('');
+  })()}`;
   rlExSel();
 }
 function rlExSel(){
@@ -1598,6 +1658,7 @@ function setHasRuck(v){S.hasRuck=v;save();rv();}
 function setHasRuck2(v){S.hasRuck2=v;save();rv();}
 function setCW(n){S.cw=n;save();rv();}
 let cycDelPending=null;
+let planOpen={};
 function cycDelTap(id){
   if(cycDelPending===id){cycDelPending=null;deleteCycle(id);}
   else{cycDelPending=id;rv();setTimeout(()=>{if(cycDelPending===id){cycDelPending=null;rv();}},3000);}
@@ -2979,14 +3040,26 @@ function savePRDate(id,val){
   prDateEdit=null;save();rv();
 }
 function failStyle(s){return s&&s.failed?'color:#e06060;border-color:#a04040':'';}
+function injectDemoReturn(){
+  const btn=document.getElementById('demo-return');
+  if(btn)return;
+  const b=document.createElement('button');
+  b.id='demo-return';
+  b.style.cssText='position:fixed;bottom:74px;right:12px;z-index:400;height:36px;padding:0 14px;border-radius:18px;background:#0f1e30;border:1.5px solid var(--gdk);color:var(--g2);font-family:var(--fn);font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+  b.textContent='▶ Guide';
+  b.onclick=()=>{b.remove();showWelcomeDemo();};
+  document.body.appendChild(b);
+}
 function showWelcomeDemo(){
+  document.getElementById('demo-return')?.remove();
   if(document.getElementById('demo-ov'))return;
   const steps=[
-    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 92 exercises covering Squat, Pull, Push, Functional, and all Accessory categories to your pool.',action:'Go to Library',fn:"nav('lib')"},
-    {n:'2',title:'Select Your Exercises',body:'In the Library, tap the checkbox next to each exercise you want included in your programme. Selected exercises appear in your Plan. You can add custom exercises at any time.',action:null},
-    {n:'3',title:'Configure Your Plan',body:'Go to the <b>Plan tab</b>. Set your <b>training days per week</b> (1–4), <b>number of weeks</b> (1–4), and whether to include a Ruck session. These define your training block structure.',action:"Go to Plan",fn:"nav('cyc')"},
-    {n:'4',title:'Generate Your Cycle',body:'On the Plan tab, tap <b>Generate Cycle</b>. Apex Fortis builds the full session structure — Max Effort and Dynamic days, exercise rotation, and ruck if selected. All done automatically.',action:null},
-    {n:'5',title:'Start Training',body:'Go to the <b>Train tab</b>. Navigate with the Week and Day pills. Tap an exercise card to expand it, log your weight, reps, RPE, and rest. Tap the ⏱ button to start your rest timer.',action:'Go to Train',fn:"nav('train')"}
+    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 92 exercises covering Squat, Pull, Push, Functional, and all Accessory categories. You can add your own custom exercises at any time.',action:'Go to Library',fn:"nav('lib')"},
+    {n:'2',title:'Select Your Exercises',body:'In the Library, tick each exercise you want in your programme. Try to pick 3–6 Squat, 3–6 Pull, 3–6 Push, a few Carries, and a spread of Accessories.',action:null},
+    {n:'3',title:'Configure Your Plan',body:'Go to the <b>Plan tab</b>. Set <b>1–5 resistance days</b> per week, <b>1–4 weeks</b>, and whether to include <b>1 or 2 ruck sessions</b> per week. Apex Fortis builds the full session structure automatically.',action:'Go to Plan',fn:"nav('cyc')"},
+    {n:'4',title:'Generate & Start Training',body:'Tap <b>Generate Cycle</b>. Then go to Train, navigate with the Week and Day pills, and log your sets. Each exercise shows a <b>Suggested Target</b> based on your previous performance — tap <b>Apply</b> to use it.',action:'Go to Train',fn:"nav('train')"},
+    {n:'5',title:'Wildcards, Swaps & Supersets',body:'In any session, tap <b>⚡ Add Wildcard</b> to drop in a one-off exercise that won\'t carry to future cycles. Tap <b>Swap</b> on any exercise card to replace it. Tap <b>⊕ Add Superset Partner</b> to pair two exercises into a superset set.',action:null},
+    {n:'6',title:'Track Your Progress',body:'The <b>Stats tab</b> pools data across all cycles. See total volume trends, PRs by exercise, ruck history, estimated 1RMs, and weight progression charts — all updated in real time as you log sessions.',action:'Go to Stats',fn:"nav('stats')"}
   ];
   let step=0;
   const el=document.createElement('div');
@@ -3012,7 +3085,7 @@ function showWelcomeDemo(){
     el.querySelector('#dm-skip').onclick=()=>el.remove();
     el.querySelector('#dm-next').onclick=()=>{if(step<steps.length-1){step++;render();}else el.remove();};
     const back=el.querySelector('#dm-back');if(back)back.onclick=()=>{step--;render();};
-    const act=el.querySelector('#dm-act');if(act&&s.fn)act.onclick=()=>{el.remove();eval(s.fn);};
+    const act=el.querySelector('#dm-act');if(act&&s.fn)act.onclick=()=>{el.remove();eval(s.fn);injectDemoReturn();};
   }
   render();
 }
@@ -3252,7 +3325,7 @@ function setupPWA(){
       ctx.fillRect(0,0,size,size);
       // Gold AF — system fonts, large and centred
       ctx.fillStyle='#c9a84c';
-      ctx.font=`900 ${Math.floor(size*0.58)}px Arial`;
+      ctx.font=`900 ${Math.floor(size*0.72)}px Arial`;
       ctx.textAlign='center';
       ctx.textBaseline='middle';
       ctx.fillText('AF',size/2,size/2);
