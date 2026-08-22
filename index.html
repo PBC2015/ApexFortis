@@ -563,10 +563,12 @@ function prewarmAudio(){
 function startTimer(secs,lbl){
   if(TM.iv)clearInterval(TM.iv);
   ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
-  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,_t20:null,_t10:null,_tvib:null,_tvend:null};
+  // Cancel pre-scheduled oscillators from any previous timer BEFORE overwriting TM
+  (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
+  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,_t20:null,_t10:null,_tvib:null,_tvend:null,_oscillators:[]};
   const tb=document.getElementById('tbar');
   if(tb){tb.classList.add('vis');const tl=document.getElementById('tl');if(tl)tl.textContent=lbl||'Rest Timer';}
-  // Pre-schedule end-of-timer alarm via Web Audio (precise)
+  // Pre-schedule end-of-timer alarm — track nodes for cancellation
   try{
     const ac=getAC();const now=ac.currentTime;
     function tone(freq,t,dur,vol=0.9){
@@ -576,17 +578,18 @@ function startTimer(secs,lbl){
       g.gain.setValueAtTime(vol,t);
       g.gain.exponentialRampToValueAtTime(0.001,t+dur);
       o.start(t);o.stop(t+dur+0.05);
+      TM._oscillators.push(o);
     }
     const et=now+secs;
     tone(660,et,0.25);tone(770,et+0.32,0.25);tone(990,et+0.65,0.3);tone(1100,et+1.0,0.55);
   }catch(e){}
-  // 20s verbal — fresh speech in setTimeout
+  // 20s verbal
   if(secs>=20){
     TM._t20=setTimeout(()=>{
       try{const u=new SpeechSynthesisUtterance('twenty');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
     },Math.max(0,(secs-20)*1000-400));
   }
-  // 10s beep + verbal + vibration — fresh AudioContext in setTimeout (survives suspension)
+  // 10s beep + verbal + vibration — fresh AudioContext in setTimeout
   if(secs>=10){
     TM._t10=setTimeout(()=>{
       try{
@@ -602,7 +605,6 @@ function startTimer(secs,lbl){
       if(navigator.vibrate)navigator.vibrate([120]);
     },Math.max(0,(secs-10)*1000-300));
   }
-  // End vibration
   TM._tvend=setTimeout(()=>{
     if(navigator.vibrate)navigator.vibrate([500,120,500,120,600,120,900]);
   },secs*1000);
@@ -628,7 +630,8 @@ function extT(s){if(TM.on||TM.end>Date.now()){TM.end+=s*1000;TM.dur+=s;}}
 function stopT(){
   if(TM.iv)clearInterval(TM.iv);
   ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
-  TM.on=false;
+  (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
+  TM.on=false;TM._oscillators=[];
   const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');
 }
 function updRestDefault(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.restDefault=v;save();}
@@ -1829,7 +1832,9 @@ function startNextCycle(cid){
       return{id:newId,libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
         role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
         weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
-        restDefault:ex.restDefault||'',sets:newSets};
+        restDefault:ex.restDefault||'',
+        isAFSAP:ex.isAFSAP||false,repGoal:ex.repGoal||100,afRest:ex.afRest||60,
+        sets:newSets};
     });
     // Re-map supersetWith using new IDs
     exercises.forEach((ex,i)=>{
@@ -2226,6 +2231,9 @@ function vTrain(c){
     </button>
     <button class="btn btns mb12" style="width:100%;color:var(--gd);border-color:var(--gd)" onclick="addWildcard('${cyc.id}',${sess.week},${sess.day})">
       ⚡ Add Wildcard
+    </button>
+    <button class="btn btns mb12" style="width:100%;color:var(--gd);border-color:var(--gdk)" onclick="addAFSAPExToSession('${cyc.id}',${sess.week},${sess.day})">
+      ◎ Add AFSAP Exercise
     </button>`;
   }
   c.innerHTML=h;
@@ -2255,9 +2263,8 @@ function logSetAsPR(name,cid,w,d,eid,si){
 function rSess(sess,cid){
   if(!sess.exercises.length)return'<div class="empty">—<h3>No exercises planned</h3></div>';
   const sorted=[...sess.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
-  // Default new/unseen cards to collapsed
   sorted.forEach(ex=>{if(!(ex.id in exCollapsed))exCollapsed[ex.id]=true;});
-  return sorted.map(ex=>rEx(ex,sess,cid)).join('');
+  return sorted.map(ex=>ex.isAFSAP?rAFSAPEx(ex,sess,cid):ex.supersetWith?rSSEx(ex,sess,cid):rEx(ex,sess,cid)).join('');
 }
 
 let exCollapsed={};
@@ -2302,6 +2309,132 @@ function moveBtns(ex,sess,cid){
     <button class="move-btn" ${canUp?'':'style="opacity:.25;pointer-events:none"'} onclick="moveEx('${cid}',${sess.week},${sess.day},'${ex.id}',-1)" title="Move up">▲</button>
     <button class="move-btn" ${canDown?'':'style="opacity:.25;pointer-events:none"'} onclick="moveEx('${cid}',${sess.week},${sess.day},'${ex.id}',1)" title="Move down">▼</button>
   </div>`;
+}
+// ─── AFSAP (As Few Sets As Possible) ─────────────────────────────────────────
+function updAFSAPGoal(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.repGoal=parseInt(v)||100;save();}
+function updAFSAPRest(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.afRest=parseInt(v)||60;save();}
+function startAFSAPRest(cid,w,d,eid){
+  const ex=gEx(cid,w,d,eid);if(!ex)return;
+  ex.sets.push({...mkSet(),reps:'',carried:null});
+  save();rv();
+  startTimer(ex.afRest||60,ex.name+' — AFSAP');
+}
+function refreshAFSAPCounter(eid,sets,goal){
+  const el=document.getElementById('afsap-rem-'+eid);if(!el)return;
+  const done=sets.reduce((t,s)=>t+(parseFloat(s.reps)||0),0);
+  const g=goal||100;
+  const rem=Math.max(0,g-done);
+  const pct=Math.min(100,Math.round(done/g*100));
+  const over=done>g?done-g:0;
+  el.textContent=done>=g?(over>0?'🎯 Goal reached! +'+over+' bonus reps':'🎯 Goal reached in '+sets.length+' sets!'):'Remaining: '+rem+' / '+g+' reps';
+  el.style.color=done>=g?'var(--green)':'var(--gd)';
+  const bar=document.getElementById('afsap-bar-'+eid);
+  if(bar)bar.style.width=pct+'%';
+}
+function addAFSAPExToSession(cid,w,d){
+  function rows(q){
+    const fl=q?S.lib.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())):S.lib;
+    return fl.sort((a,b)=>a.name.localeCompare(b.name)).map(l=>
+      `<div class="sw-row" onclick="doAddAFSAP('${cid}',${w},${d},'${l.id}')">
+        <div class="sw-name">${l.name}</div>
+        <div class="fwrap">${sb(l.skill)}${fb(l.focus)}</div>
+      </div>`).join('');
+  }
+  document.querySelector('.app').insertAdjacentHTML('beforeend',
+    `<div class="swov" id="swov" onclick="closeOverlay('swov',event)">
+      <div class="swsh" onclick="event.stopPropagation()">
+        <div class="sw-hdl"></div>
+        <div class="fbet mb8">
+          <div><div class="lbl">AFSAP Exercise</div><div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:2px">As Few Sets As Possible</div></div>
+          <button class="tba xbtn" onclick="closeOverlay('swov')">✕</button>
+        </div>
+        <input class="ins mb8" placeholder="Search library…" oninput="filterAFSAPPicker(this.value,'${cid}',${w},${d})">
+        <div id="afsap-picker">${rows('')}</div>
+      </div>
+    </div>`);
+}
+function filterAFSAPPicker(q,cid,w,d){
+  const el=document.getElementById('afsap-picker');if(!el)return;
+  const fl=q?S.lib.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())):S.lib;
+  el.innerHTML=fl.sort((a,b)=>a.name.localeCompare(b.name)).map(l=>
+    `<div class="sw-row" onclick="doAddAFSAP('${cid}',${w},${d},'${l.id}')">
+      <div class="sw-name">${l.name}</div><div class="fwrap">${sb(l.skill)}</div>
+    </div>`).join('');
+}
+function doAddAFSAP(cid,w,d,libId){
+  const cyc=S.cycles.find(c=>c.id===cid);
+  const lib=S.lib.find(l=>l.id===libId);
+  if(!cyc||!lib)return;
+  const sess=cyc.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
+  const newEx={...mkEx({...lib,role:'manual'}),isAFSAP:true,repGoal:100,afRest:60};
+  const arr=[...sess.exercises,newEx];arr.forEach((e,i)=>e.sortOrder=i);
+  sess.exercises=arr;save();closeOverlay('swov');rv();notify('AFSAP: '+lib.name);
+}
+function rAFSAPEx(ex,sess,cid){
+  const goal=ex.repGoal||100;
+  const rest=ex.afRest||60;
+  const totalDone=ex.sets.reduce((t,s)=>t+(parseFloat(s.reps)||0),0);
+  const rem=Math.max(0,goal-totalDone);
+  const pct=Math.min(100,Math.round(totalDone/goal*100));
+  const goalReached=totalDone>=goal;
+  const hasFail=ex.sets.some(s=>s.failed);
+  const isCollapsed=exCollapsed[ex.id]!==false;
+  let h=`<div class="exb ${hasFail?'has-fail':''}" style="border-left:3px solid var(--gd)">
+    <div class="exbh" onclick="toggleExCollapse('${ex.id}',event)">
+      <div style="flex:1">
+        <div class="exbn">${ex.name}</div>
+        <div class="exbr">AFSAP · ${totalDone}/${goal} reps${goalReached?' · ✓ Done':''}</div>
+      </div>
+      <span style="font-family:var(--fn);font-size:10px;font-weight:700;color:var(--gd);background:rgba(201,168,76,.1);border:1px solid var(--gdk);padding:2px 6px;border-radius:8px;margin-right:6px">◎ AFSAP</span>
+      <button class="exbc" onclick="toggleExCollapse('${ex.id}',event)">${isCollapsed?'▸':'▾'}</button>
+    </div>
+    <div class="exby" style="${isCollapsed?'max-height:0;overflow:hidden':''}">`;
+  if(!isCollapsed){
+    // Goal + rest config
+    h+=`<div style="display:flex;gap:12px;margin-bottom:12px;align-items:flex-end">
+      <div style="flex:1"><div class="lbl mb4">Rep Goal</div>
+        <input class="ins" type="number" inputmode="numeric" value="${goal}" style="max-width:90px"
+          oninput="updAFSAPGoal('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
+      </div>
+      <div style="flex:1"><div class="lbl mb4">Rest (sec)</div>
+        <input class="ins" type="number" inputmode="numeric" value="${rest}" style="max-width:90px"
+          oninput="updAFSAPRest('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
+      </div>
+    </div>`;
+    // Set rows
+    ex.sets.forEach((s,si)=>{
+      const carried=s.carried?.reps;
+      h+=`<div class="setc ${s.failed?'failed':''}" style="display:flex;align-items:center;gap:10px">
+        <div style="font-family:var(--fn);font-size:13px;font-weight:700;color:var(--t2);min-width:44px">Set ${si+1}</div>
+        <div class="sf" style="flex:1"><label>Reps</label>
+          <input id="sf-${ex.id}-${si}-reps" type="number" inputmode="numeric"
+            value="${s.reps||''}" placeholder="${carried?s.reps:'0'}"
+            class="${carried?'carried-val':''}"
+            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value);refreshAFSAPCounter('${ex.id}',gEx('${cid}',${sess.week},${sess.day},'${ex.id}').sets,${goal})">
+        </div>
+        ${si>0?`<button class="fail-btn ${s.failed?'on':''}" onclick="toggleFail('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>`:''}
+      </div>`;
+    });
+    // Progress
+    h+=`<div style="margin:12px 0 6px">
+      <div class="prog-bar"><div id="afsap-bar-${ex.id}" class="prog-fill" style="width:${pct}%"></div></div>
+      <div id="afsap-rem-${ex.id}" style="font-family:var(--fn);font-size:13px;font-weight:700;margin-top:6px;color:${goalReached?'var(--green)':'var(--gd)'}">
+        ${goalReached?(totalDone>goal?'🎯 Goal reached! +'+(totalDone-goal)+' bonus reps':'🎯 Goal reached in '+ex.sets.length+' sets!'):'Remaining: '+rem+' / '+goal+' reps'}
+      </div>
+    </div>`;
+    // Rest + Next Set — always available; label changes after goal
+    h+=`<button class="rest-btn" style="width:100%;margin-top:4px${goalReached?';border-color:var(--g);color:var(--g2)':''}" onclick="startAFSAPRest('${cid}',${sess.week},${sess.day},'${ex.id}')">
+      ${goalReached?`⏱ Rest ${fmtS(rest)} + Add Bonus Set`:`⏱ Rest ${fmtS(rest)} + Next Set`}
+    </button>`;
+    // Remove button
+    const pending=exDelPending[ex.id];
+    h+=`<div style="margin-top:8px">${pending
+      ?`<div style="display:flex;gap:6px"><button class="btn btns" style="flex:1;color:#e06060;border-color:#c04040" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">⚠ Yes, Remove</button><button class="btn btns" style="flex:1" onclick="clearExDel('${ex.id}')">No</button></div>`
+      :`<button class="btn btns" style="width:100%" onclick="removeExFromSession('${cid}',${sess.week},${sess.day},'${ex.id}')">− Remove Exercise</button>`
+    }</div>`;
+  }
+  h+=`</div></div>`;
+  return h;
 }
 function rEx(ex,sess,cid){
   if(ex.supersetWith)return rSSEx(ex,sess,cid);
