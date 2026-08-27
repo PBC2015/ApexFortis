@@ -195,7 +195,8 @@ input[type=date]{color-scheme:dark}
 .collapse-btn{background:none;border:none;cursor:pointer;color:var(--t2);font-size:21px;padding:2px 4px;line-height:1;flex-shrink:0;align-self:flex-start}
 /* SET CARDS */
 .setc{background:var(--bg3);border:1px solid var(--b);border-radius:7px;padding:10px;margin-bottom:8px}
-input.carried-val{color:var(--t2) !important;font-style:italic}
+input.carried-val::placeholder{color:var(--t2);font-style:italic;opacity:.75}
+input.carried-val{font-style:italic}
 .setc.topset{border:1.5px solid var(--g);background:rgba(74,56,16,.3);border-left:4px solid var(--g2)}
 .setc.attempt{opacity:.7;border-color:var(--b2)}
 .sr1{display:grid;grid-template-columns:22px 1fr 1fr 1fr 32px;gap:6px;align-items:end;margin-bottom:8px}
@@ -560,6 +561,25 @@ function prewarmAudio(){
     const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u);
   }catch(e){}
 }
+let _wakeLock=null,_keepAlive=null;
+async function acquireWakeLock(){
+  try{if('wakeLock' in navigator&&!_wakeLock){_wakeLock=await navigator.wakeLock.request('screen');_wakeLock.addEventListener('release',()=>{_wakeLock=null;});}}catch(e){}
+}
+function releaseWakeLock(){try{if(_wakeLock){_wakeLock.release();_wakeLock=null;}}catch(e){}}
+function startKeepAlive(){
+  // Near-silent looping oscillator keeps the AudioContext (and audio focus) alive off-screen
+  try{
+    stopKeepAlive();
+    const ac=getAC();
+    const o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination);
+    o.frequency.value=20;o.type='sine';
+    g.gain.setValueAtTime(0.0001,ac.currentTime);
+    o.start();
+    _keepAlive={o,g};
+  }catch(e){}
+}
+function stopKeepAlive(){try{if(_keepAlive){_keepAlive.o.stop();_keepAlive=null;}}catch(e){}}
 function startTimer(secs,lbl){
   if(TM.iv)clearInterval(TM.iv);
   ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
@@ -571,17 +591,28 @@ function startTimer(secs,lbl){
   // Pre-schedule end-of-timer alarm — track nodes for cancellation
   try{
     const ac=getAC();const now=ac.currentTime;
-    function tone(freq,t,dur,vol=0.9){
-      const o=ac.createOscillator(),g=ac.createGain();
-      o.connect(g);g.connect(ac.destination);
-      o.frequency.value=freq;o.type='triangle';
-      g.gain.setValueAtTime(vol,t);
-      g.gain.exponentialRampToValueAtTime(0.001,t+dur);
-      o.start(t);o.stop(t+dur+0.05);
-      TM._oscillators.push(o);
+    // Compressor prevents harsh clipping while allowing gain well above 1.0
+    const comp=ac.createDynamicsCompressor();
+    comp.threshold.value=-8;comp.knee.value=6;comp.ratio.value=12;
+    comp.attack.value=0.002;comp.release.value=0.1;
+    const master=ac.createGain();master.gain.value=3.2;
+    comp.connect(master);master.connect(ac.destination);
+    TM._nodes=[comp,master];
+    // Stacked detuned oscillators = much greater perceived loudness
+    function tone(freq,t,dur,vol=1.0){
+      [0,-7,7].forEach((det,i)=>{
+        const o=ac.createOscillator(),g=ac.createGain();
+        o.connect(g);g.connect(comp);
+        o.frequency.value=freq;o.detune.value=det;
+        o.type=i===0?'square':'sawtooth';
+        g.gain.setValueAtTime(vol*(i===0?1:0.5),t);
+        g.gain.exponentialRampToValueAtTime(0.001,t+dur);
+        o.start(t);o.stop(t+dur+0.05);
+        TM._oscillators.push(o);
+      });
     }
     const et=now+secs;
-    tone(660,et,0.25);tone(770,et+0.32,0.25);tone(990,et+0.65,0.3);tone(1100,et+1.0,0.55);
+    tone(880,et,0.3);tone(1046,et+0.35,0.3);tone(1318,et+0.7,0.35);tone(1568,et+1.05,0.75);
   }catch(e){}
   // 20s verbal
   if(secs>=20){
@@ -594,12 +625,19 @@ function startTimer(secs,lbl){
     TM._t10=setTimeout(()=>{
       try{
         const ac2=new(window.AudioContext||window.webkitAudioContext)();
-        const o=ac2.createOscillator(),g=ac2.createGain();
-        o.connect(g);g.connect(ac2.destination);
-        o.frequency.value=880;o.type='triangle';
-        g.gain.setValueAtTime(0.9,ac2.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001,ac2.currentTime+0.18);
-        o.start();o.stop(ac2.currentTime+0.2);
+        const cp=ac2.createDynamicsCompressor();
+        cp.threshold.value=-8;cp.ratio.value=12;cp.attack.value=0.002;
+        const mg=ac2.createGain();mg.gain.value=3.2;
+        cp.connect(mg);mg.connect(ac2.destination);
+        [0,-7,7].forEach((det,i)=>{
+          const o=ac2.createOscillator(),g=ac2.createGain();
+          o.connect(g);g.connect(cp);
+          o.frequency.value=1046;o.detune.value=det;
+          o.type=i===0?'square':'sawtooth';
+          g.gain.setValueAtTime(i===0?1.0:0.5,ac2.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.001,ac2.currentTime+0.28);
+          o.start();o.stop(ac2.currentTime+0.3);
+        });
       }catch(e){}
       try{const u=new SpeechSynthesisUtterance('ten');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
       if(navigator.vibrate)navigator.vibrate([120]);
@@ -608,6 +646,7 @@ function startTimer(secs,lbl){
   TM._tvend=setTimeout(()=>{
     if(navigator.vibrate)navigator.vibrate([500,120,500,120,600,120,900]);
   },secs*1000);
+  acquireWakeLock();startKeepAlive();
   TM.iv=setInterval(tickTM,100);tickTM();
 }
 function tickTM(){
@@ -621,6 +660,7 @@ function tickTM(){
     if(tf){tf.className='tbar-fill';tf.style.width=((1-(rem/(TM.dur*1000)))*100)+'%';}
   }else{
     clearInterval(TM.iv);TM.on=false;
+    releaseWakeLock();stopKeepAlive();
     td.textContent='GO!';td.className='tbar-num done';
     if(tf)tf.className='tbar-fill done';
     setTimeout(()=>{const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');},4500);
@@ -632,17 +672,29 @@ function stopT(){
   ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
   (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
   TM.on=false;TM._oscillators=[];
+  releaseWakeLock();stopKeepAlive();
   const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');
 }
 function updRestDefault(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.restDefault=v;save();}
 function startRest(cid,w,d,eid,si){const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;startTimer(parseRest(ex.sets[si].rest||ex.restDefault)||S.defRest||120,ex.name);}
 function upd(cid,w,d,eid,si,f,v){
   const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
-  const s=ex.sets[si];s[f]=v;
-  if(s.carried&&s.carried[f]){
-    s.carried[f]=false;
-    const inp=document.getElementById('sf-'+eid+'-'+si+'-'+f);
-    if(inp)inp.classList.remove('carried-val');
+  const s=ex.sets[si];
+  const inp=document.getElementById('sf-'+eid+'-'+si+'-'+f);
+  if(v===''){
+    // Cleared — restore the carried ghost if one exists
+    s[f]='';
+    if(s.carriedVals&&s.carriedVals[f]!=null&&s.carriedVals[f]!==''){
+      if(!s.carried)s.carried={};
+      s.carried[f]=true;
+      if(inp){inp.classList.add('carried-val');inp.placeholder=s.carriedVals[f];}
+    }
+  }else{
+    s[f]=v;
+    if(s.carried&&s.carried[f]){
+      s.carried[f]=false;
+      if(inp)inp.classList.remove('carried-val');
+    }
   }
   save();
   if(f==='weight'||f==='reps')refreshOrm(cid,w,d,eid);
@@ -965,18 +1017,6 @@ function resetData(){
   _resetArmed=false;localStorage.removeItem(SK);S=def();save();render();notify('Data reset');
 }
 
-// ─── PR DETECTION ─────────────────────────────────────────────────────────────
-function detectPR(name,weight,reps,notes='',metric='reps'){
-  const kg=parseFloat(weight),r=parseFloat(reps);if(!kg||!r)return;
-  const best=S.prs.filter(p=>p.exercise===name&&parseFloat(p.reps)===r)
-    .reduce((a,b)=>parseFloat(b.kg)>parseFloat(a.kg)?b:a,{kg:0});
-  if(kg>parseFloat(best.kg)){
-    S.prs.push({id:uid(),exercise:name,kg,reps:r,date:new Date().toLocaleDateString('en-GB'),notes,metric:metric||'reps'});
-    const unitSfx=metric==='metres'?'m':metric==='seconds'?'s':metric==='minutes'?'min':'r';
-    save();notify('★ PR — '+name+' '+kg+uw()+' × '+r+unitSfx);
-  }
-}
-
 // ─── CYCLE GENERATION ─────────────────────────────────────────────────────────
 function genCycle(selIds,weeks,rotOff=0){
   const sel=S.lib.filter(e=>selIds.includes(e.id));
@@ -1274,6 +1314,8 @@ function addEx(){
   S.lib.push({id:uid(),name:n,skill:sk,focus:fo,category:ca,metric});
   save();document.getElementById('ln').value='';rlLib();notify('Added: '+n);
 }
+let LO={};
+function toggleLibCat(k){LO[k]=!LO[k];rlLib();}
 function rlLib(){
   const el=document.getElementById('ll');if(!el)return;
   const q=(S.libSearch||'').toLowerCase();
@@ -1287,7 +1329,14 @@ function rlLib(){
       return e.skill==='Accessories'&&e.category===catKey;
     }):fl.filter(e=>e.skill===sk);
     if(!exs.length)return;
-    h+=`<div class="lbl mt12 mb6">${sk} · ${exs.length}</div>`;
+    const lkey='lib_'+sk.replace(/[^a-zA-Z]/g,'');
+    const lopen=q?true:(LO[lkey]===true);
+    h+=`<div onclick="toggleLibCat('${lkey}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:9px 10px;margin-top:10px;background:var(--bg3);border:1px solid var(--b);border-radius:6px;user-select:none">
+      <span style="flex:1;font-family:var(--fn);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--g2)">${sk}</span>
+      <span style="font-family:var(--fn);font-size:11px;color:var(--t2)">${exs.length}</span>
+      <span style="color:var(--t2);font-size:15px">${lopen?'▾':'▸'}</span>
+    </div>`;
+    if(!lopen)return;
     exs.forEach(e=>{
       const m=e.metric||'reps';
       if(editExId===e.id){
@@ -1517,7 +1566,8 @@ function vCyc(c){
     ${warns.map(w=>`<div class="warn-banner">■${w}</div>`).join('')}
     <div id="exsel"></div>
     <div class="gline mt8"></div>
-    <button class="btnp" style="width:100%;margin-top:4px" onclick="bldCyc()">■ Generate ${S.cw||4}-Week Cycle</button>
+    <button class="btnp" style="width:100%;margin-top:4px" onclick="bldCyc()">■ ${S.cycles.length?'Generate Next Cycle (carries exercises)':'Generate '+(S.cw||4)+'-Week Cycle'}</button>
+    ${S.cycles.length?`<button class="btn btns" style="width:100%;margin-top:6px" onclick="bldNewPlan()">✦ Start a Brand-New Plan (fresh rotation)</button>`:''}
     <div class="prev-tog" onclick="togglePrev()">
       <span>■Preview Plan</span>
       <span id="prev-icon" style="font-size:21px;display:inline-block">▾</span>
@@ -1684,12 +1734,39 @@ function bldCyc(){
   const sel=S.sel||S.lib.map(e=>e.id);
   if(!sel.length){notify('Select exercises first');return;}
   const prev=S.cycles.find(c=>c.id===S.cid);
-  const id=uid(),sessions=genCycle(sel,S.cw||4);
   const name=(document.getElementById('cycname')?.value||'').trim();
-  const cyc={id,name,startDate:new Date().toLocaleDateString('en-GB'),weeks:S.cw||4,trainDays:S.trainDays||3,hasRuck:S.hasRuck!==false,homeGymDays:[...(S.homeGymDays||[])],sessions,selIds:[...sel],rotationId:id,cycleNumber:1,manualAdditions:[],supersetPairs:[]};
-  if(prev)autofill(cyc,prev);
+  // If a cycle already exists, continue that plan — replicate its exercises exactly
+  if(prev){
+    const cn=(prev.cycleNumber||1)+1;
+    const id=uid();
+    const baseName=(prev.name||'Block').replace(/\s*—\s*Cycle \d+$/,'').trim();
+    const cyc={id,name:name||(baseName+` — Cycle ${cn}`),
+      rotationId:prev.rotationId||prev.id,cycleNumber:cn,
+      startDate:new Date().toLocaleDateString('en-GB'),
+      weeks:prev.weeks,trainDays:prev.trainDays||3,
+      hasRuck:prev.hasRuck!==false,hasRuck2:prev.hasRuck2||false,
+      homeGymDays:[...(prev.homeGymDays||[])],
+      sessions:copyCycleSessions(prev),
+      selIds:[...prev.selIds],manualAdditions:[],supersetPairs:[]};
+    S.cycles.push(cyc);S.cid=id;S.wk=0;S.dy=0;S._pName='';
+    save();notify('Cycle '+cn+' generated — exercises carried over');render();
+    return;
+  }
+  // First ever cycle — generate fresh from selection
+  const id=uid(),sessions=genCycle(sel,S.cw||4);
+  const cyc={id,name,startDate:new Date().toLocaleDateString('en-GB'),weeks:S.cw||4,trainDays:S.trainDays||3,hasRuck:S.hasRuck!==false,hasRuck2:S.hasRuck2||false,homeGymDays:[...(S.homeGymDays||[])],sessions,selIds:[...sel],rotationId:id,cycleNumber:1,manualAdditions:[],supersetPairs:[]};
   S.cycles.push(cyc);S.cid=id;S.wk=0;S.dy=0;S._pName='';
   save();notify('Cycle generated!');render();
+}
+function bldNewPlan(){
+  // Explicitly start a brand-new plan with a fresh exercise rotation
+  const sel=S.sel||S.lib.map(e=>e.id);
+  if(!sel.length){notify('Select exercises first');return;}
+  const id=uid(),sessions=genCycle(sel,S.cw||4);
+  const name=(document.getElementById('cycname')?.value||'').trim();
+  const cyc={id,name:name||'New Plan',startDate:new Date().toLocaleDateString('en-GB'),weeks:S.cw||4,trainDays:S.trainDays||3,hasRuck:S.hasRuck!==false,hasRuck2:S.hasRuck2||false,homeGymDays:[...(S.homeGymDays||[])],sessions,selIds:[...sel],rotationId:id,cycleNumber:1,manualAdditions:[],supersetPairs:[]};
+  S.cycles.push(cyc);S.cid=id;S.wk=0;S.dy=0;S._pName='';
+  save();notify('New plan created!');render();
 }
 
 // ─── SUPERSET MANAGEMENT ──────────────────────────────────────────────────────
@@ -1805,51 +1882,53 @@ function applyManualAdditions(sessions,additions){
   });
 }
 let _nextCycPending=null;
-function startNextCycle(cid){
-  const prev=S.cycles.find(c=>c.id===cid);if(!prev)return;
-  const cn=(prev.cycleNumber||1)+1;
-  const id=uid();
-
-  // Deep-copy previous cycle's sessions — same exercises, same order, same supersets
-  // All logged data is cleared; structure (exercise choice, role, order, supersets) is preserved
-  const sessions=prev.sessions.map(sess=>{
-    const idMap={};
-    const exercises=(sess.exercises||[]).filter(e=>!e.isWildcard).map(ex=>{
-      const newId=uid();
-      idMap[ex.id]=newId;
+function copyCycleSessions(prev){
+  // Deep-copy a cycle's session structure — exercises, order, supersets, AFSAP config.
+  // Wildcards are excluded. All logged data cleared; previous values become grey ghosts.
+  return prev.sessions.map(sess=>{
+    const srcExs=(sess.exercises||[]).filter(e=>!e.isWildcard);
+    const exercises=srcExs.map(ex=>{
       const prevEquip=(ex.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
       const prevSets=ex.sets||[];
       const carryFields=['weight','reps','sets','rpe','rest','equipment','notes'];
       const newSets=prevSets.length>0?prevSets.map(ps=>{
-        const carried={};
-        carryFields.forEach(f=>{if(ps[f]!=null&&ps[f]!=='')carried[f]=true;});
+        const carried={},carriedVals={};
+        carryFields.forEach(f=>{
+          const val=f==='equipment'?(ps[f]||prevEquip):(f==='rest'?(ps[f]||ex.restDefault||''):ps[f]);
+          if(val!=null&&val!==''){carried[f]=true;carriedVals[f]=String(val);}
+        });
         return{...mkSet(),
-          weight:ps.weight||'',reps:ps.reps||'',sets:ps.sets||'',
-          rpe:ps.rpe||'',rest:ps.rest||ex.restDefault||'',
-          equipment:ps.equipment||prevEquip,notes:ps.notes||'',
-          failed:false,carried:Object.keys(carried).length?carried:null};
+          weight:'',reps:'',sets:'',rpe:'',rest:'',equipment:'',notes:'',
+          failed:false,
+          carried:Object.keys(carried).length?carried:null,
+          carriedVals:Object.keys(carriedVals).length?carriedVals:null};
       }):[{...mkSet(),equipment:prevEquip}];
-      return{id:newId,libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
+      const nx={id:uid(),libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
         role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
         weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
         restDefault:ex.restDefault||'',
         isAFSAP:ex.isAFSAP||false,repGoal:ex.repGoal||100,afRest:ex.afRest||60,
         sets:newSets};
-    });
-    // Re-map supersetWith using new IDs
-    exercises.forEach((ex,i)=>{
-      const orig=(sess.exercises||[])[i];
-      if(orig&&orig.supersetWith){
-        ex.supersetWith={id:uid(),libId:orig.supersetWith.libId,
-          name:orig.supersetWith.name,metric:orig.supersetWith.metric||'reps',
-          weightMode:orig.supersetWith.weightMode||'kg',sets:[mkSet()]};
+      if(ex.supersetWith){
+        nx.supersetWith={id:uid(),libId:ex.supersetWith.libId,
+          name:ex.supersetWith.name,metric:ex.supersetWith.metric||'reps',
+          weightMode:ex.supersetWith.weightMode||'kg',
+          sets:newSets.map(()=>mkSet())};
       }
+      return nx;
     });
+    exercises.forEach((e,i)=>e.sortOrder=i);
     return{week:sess.week,day:sess.day,type:sess.type,
       done:false,missed:false,notes:'',isHomeGym:sess.isHomeGym||false,
-      ruckData:null,exercises};
+      ruckData:sess.type==='ruck'?{weight:'',distance:'',duration:'',notes:'',equipment:''}:null,
+      exercises};
   });
-
+}
+function startNextCycle(cid){
+  const prev=S.cycles.find(c=>c.id===cid);if(!prev)return;
+  const cn=(prev.cycleNumber||1)+1;
+  const id=uid();
+  const sessions=copyCycleSessions(prev);
   const baseName=(prev.name||'Block').replace(/\s*—\s*Cycle \d+$/,'').trim();
   const cyc={id,name:baseName+(cn>1?` — Cycle ${cn}`:''),
     rotationId:prev.rotationId||prev.id,cycleNumber:cn,
@@ -2408,7 +2487,7 @@ function rAFSAPEx(ex,sess,cid){
         <div style="font-family:var(--fn);font-size:13px;font-weight:700;color:var(--t2);min-width:44px">Set ${si+1}</div>
         <div class="sf" style="flex:1"><label>Reps</label>
           <input id="sf-${ex.id}-${si}-reps" type="number" inputmode="numeric"
-            value="${s.reps||''}" placeholder="${carried?s.reps:'0'}"
+            value="${s.reps||''}" placeholder="${carried&&s.carriedVals?s.carriedVals.reps:'0'}"
             class="${carried?'carried-val':''}"
             oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value);refreshAFSAPCounter('${ex.id}',gEx('${cid}',${sess.week},${sess.day},'${ex.id}').sets,${goal})">
         </div>
@@ -2487,22 +2566,22 @@ function rEx(ex,sess,cid){
     h+=`<div class="setc ${s.failed?'failed':''}">
       <div class="sr1">
         <div class="snum">${si+1}</div>
-        <div class="sf"><label>${wLabel(ex)}</label><input type="number" inputmode="decimal" id="sf-${ex.id}-${si}-weight" value="${s.weight}" placeholder="0" class="${s.carried&&s.carried['weight']?'carried-val':''}" style="${failStyle(s)}"
+        <div class="sf"><label>${wLabel(ex)}</label><input type="number" inputmode="decimal" id="sf-${ex.id}-${si}-weight" value="${s.weight}" placeholder="${s.carried&&s.carried['weight']&&s.carriedVals?s.carriedVals.weight:'0'}" class="${s.carried&&s.carried['weight']?'carried-val':''}" style="${failStyle(s)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)"
-          ${isReps?`onblur="prCheck('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${si})"`:''}>
+          >
         </div>
-        <div class="sf"><label>${repLbl}</label><input type="number" inputmode="${repMode}" id="sf-${ex.id}-${si}-reps" value="${s.reps}" placeholder="0" class="${s.carried&&s.carried['reps']?'carried-val':''}" style="${failStyle(s)}"
+        <div class="sf"><label>${repLbl}</label><input type="number" inputmode="${repMode}" id="sf-${ex.id}-${si}-reps" value="${s.reps}" placeholder="${s.carried&&s.carried['reps']&&s.carriedVals?s.carriedVals.reps:'0'}" class="${s.carried&&s.carried['reps']?'carried-val':''}" style="${failStyle(s)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value)"></div>
-        <div class="sf"><label>Sets</label><input type="number" inputmode="numeric" id="sf-${ex.id}-${si}-sets" value="${s.sets||''}" placeholder="1" class="${s.carried&&s.carried['sets']?'carried-val':''}" title="How many sets performed" style="${failStyle(s)}"
+        <div class="sf"><label>Sets</label><input type="number" inputmode="numeric" id="sf-${ex.id}-${si}-sets" value="${s.sets||''}" placeholder="${s.carried&&s.carried['sets']&&s.carriedVals?s.carriedVals.sets:'1'}" class="${s.carried&&s.carried['sets']?'carried-val':''}" title="How many sets performed" style="${failStyle(s)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'sets',this.value)"></div>
         <button class="btn btnd btnxs" onclick="rmSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>
       </div>
       <div class="sr2">
-        <div class="sf"><label>RPE</label><input type="number" inputmode="decimal" step=".5" min="1" max="10" id="sf-${ex.id}-${si}-rpe" value="${s.rpe||''}" placeholder="1–10" class="${s.carried&&s.carried['rpe']?'carried-val':''}"
+        <div class="sf"><label>RPE</label><input type="number" inputmode="decimal" step=".5" min="1" max="10" id="sf-${ex.id}-${si}-rpe" value="${s.rpe||''}" placeholder="${s.carried&&s.carried['rpe']&&s.carriedVals?s.carriedVals.rpe:'1–10'}" class="${s.carried&&s.carried['rpe']?'carried-val':''}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rpe',this.value)"></div>
-        <div class="sf"><label>Rest (s)</label><input type='number' inputmode='numeric' id="sf-${ex.id}-${si}-rest" value="${s.rest||''}" placeholder="${S.defRest||60}" class="${s.carried&&s.carried['rest']?'carried-val':''}"
+        <div class="sf"><label>Rest (s)</label><input type='number' inputmode='numeric' id="sf-${ex.id}-${si}-rest" value="${s.rest||''}" placeholder="${s.carried&&s.carried['rest']&&s.carriedVals?s.carriedVals.rest:(S.defRest||60)}" class="${s.carried&&s.carried['rest']?'carried-val':''}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rest',this.value)"></div>
-        <div class="sf"><label>Notes</label><input id="sf-${ex.id}-${si}-notes" value="${s.notes||''}" placeholder="…" class="${s.carried&&s.carried['notes']?'carried-val':''}"
+        <div class="sf"><label>Notes</label><input id="sf-${ex.id}-${si}-notes" value="${s.notes||''}" placeholder="${s.carried&&s.carried['notes']&&s.carriedVals?s.carriedVals.notes:'…'}" class="${s.carried&&s.carried['notes']?'carried-val':''}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'notes',this.value)"></div>
       </div>
       <div style="display:flex;gap:6px;margin-top:8px">
@@ -2574,8 +2653,7 @@ function rSSEx(ex,sess,cid){
           <div class="snum" style="color:var(--g2)">${si+1}</div>
           <div class="sf" style="flex:1"><label>${wLabel(ex)}</label>
             <input type="number" inputmode="decimal" value="${sa.weight}" placeholder="0" style="${failStyle(sa)}"
-              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)"
-              onblur="prCheck('${ex.name}','${cid}',${sess.week},${sess.day},'${ex.id}',${si})">
+              oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)">
           </div>
           <div class="sf" style="flex:1"><label>${metricLbl(aMetric)}</label>
             <input type="number" inputmode="numeric" value="${sa.reps}" placeholder="0" style="${failStyle(sa)}"
@@ -2682,11 +2760,6 @@ function refreshOrm(cid,w,d,eid){
   const best=getBest1RM(ex.libId);
   if(best){badge.textContent='≈1RM '+best+uw();badge.style.display='';}
   else badge.style.display='none';
-}
-function prCheck(name,cid,w,d,eid,si){
-  const ex=gEx(cid,w,d,eid);if(!ex||!ex.sets[si])return;
-  const s=ex.sets[si];if(s.failed)return;
-  detectPR(name,s.weight,s.reps,s.notes||'',ex.metric||'reps');
 }
 function addSet(cid,w,d,eid){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
