@@ -18,11 +18,15 @@
     function mkIcon(sz){
       var cv=document.createElement('canvas');cv.width=cv.height=sz;
       var ctx=cv.getContext('2d');
-      ctx.fillStyle='#0c1828';ctx.fillRect(0,0,sz,sz);
-      ctx.fillStyle='#c9a84c';
-      ctx.font='900 '+(Math.floor(sz*0.72))+'px Arial';
-      ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('AF',sz/2,sz/2);
+      ctx.fillStyle='#ffffff';ctx.fillRect(0,0,sz,sz);
+      var fs=Math.floor(sz*0.74);
+      ctx.font='900 '+fs+'px "Arial Black",Arial,sans-serif';
+      ctx.textBaseline='middle';
+      var wA=ctx.measureText('A').width,wF=ctx.measureText('F').width;
+      var total=wA+wF,x0=(sz-total)/2;
+      ctx.textAlign='left';
+      ctx.fillStyle='#0c1828';ctx.fillText('A',x0,sz/2);
+      ctx.fillStyle='#b8952f';ctx.fillText('F',x0+wA,sz/2);
       var d=cv.toDataURL('image/png'),b=atob(d.split(',')[1]);
       var u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
       return URL.createObjectURL(new Blob([u],{type:'image/png'}));
@@ -31,7 +35,7 @@
     var m={name:'Apex Fortis',short_name:'Apex Fortis',description:'Conjugate Strength Training',
       start_url:location.origin+location.pathname,
       scope:location.origin+location.pathname.replace(/[^\/]*$/,''),
-      display:'standalone',background_color:'#0c1828',theme_color:'#0c1828',orientation:'portrait',
+      display:'standalone',background_color:'#ffffff',theme_color:'#0c1828',orientation:'portrait',
       icons:[
         {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
         {src:u512,sizes:'512x512',type:'image/png',purpose:'maskable'},
@@ -790,30 +794,51 @@ function swapSort(a,b){
   if(co!==0)return co;
   return a.name.localeCompare(b.name);
 }
+function swapRows(cid,w,d,exId,q){
+  const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return'';
+  const sess=cyc.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return'';
+  const ex=sess.exercises.find(e=>e.id===exId);if(!ex)return'';
+  const isHG=sess.isHomeGym;
+  const query=(q||'').toLowerCase().trim();
+  // With a search query, look across the WHOLE library; otherwise same-skill only
+  let opts=query
+    ?S.lib.filter(l=>l.name.toLowerCase().includes(query)&&(!isHG||l.homeGym))
+    :S.lib.filter(l=>l.skill===ex.skill&&(!isHG||l.homeGym));
+  opts=[...opts].sort(query?(a,b)=>a.name.localeCompare(b.name):swapSort);
+  if(!opts.length)return`<div class="chart-empty">${query?`No matches for "${q}"`:`No ${isHG?'home gym ':''}${ex.skill} exercises available${isHG?' — mark exercises ⌂ in Library':''}`}</div>`;
+  let curGroup='';
+  return opts.map(l=>{
+    let divider='';
+    if(!query){
+      const groupKey=(l.focus||'')+'|'+(l.category||'');
+      if(groupKey!==curGroup){curGroup=groupKey;
+        divider=`<div class="lbl" style="padding:6px 12px 2px;margin-top:4px;color:var(--t2);font-size:10px">${l.category?(cb(l.category)||fb(l.focus)):fb(l.focus)}</div>`;}
+    }
+    return`${divider}<div class="sw-row ${l.id===ex.libId?'cur':''}" onclick="doSwap('${cid}',${w},${d},'${exId}','${l.id}')">
+      <div class="sw-name">${l.name}${l.homeGym?`<span style="color:#6dcc8a;margin-left:6px;font-size:11px">⌂</span>`:''}</div>
+      ${query?`<div class="fwrap">${sb(l.skill)}${fb(l.focus)}</div>`:''}
+    </div>`;
+  }).join('');
+}
+function filterSwapPicker(q,cid,w,d,exId){
+  const el=document.getElementById('swap-list');
+  if(el)el.innerHTML=swapRows(cid,w,d,exId,q);
+}
 function openSwap(cid,w,d,exId){
   const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return;
   const sess=cyc.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
   const ex=sess.exercises.find(e=>e.id===exId);if(!ex)return;
   const isHG=sess.isHomeGym;
-  const opts=[...S.lib.filter(l=>l.skill===ex.skill&&(!isHG||l.homeGym))].sort(swapSort);
-  let curGroup='';
-  const rows=opts.length
-    ?opts.map(l=>{
-        const groupKey=(l.focus||'')+'|'+(l.category||'');
-        const divider=groupKey!==curGroup?(curGroup=groupKey,l.category
-          ?`<div class="lbl" style="padding:6px 12px 2px;margin-top:4px;color:var(--t2);font-size:10px">${cb(l.category)||fb(l.focus)}</div>`
-          :`<div class="lbl" style="padding:6px 12px 2px;margin-top:4px;color:var(--t2);font-size:10px">${fb(l.focus)}</div>`):'';
-        return`${divider}<div class="sw-row ${l.id===ex.libId?'cur':''}" onclick="doSwap('${cid}',${w},${d},'${exId}','${l.id}')"><div class="sw-name">${l.name}${l.homeGym?`<span style="color:#6dcc8a;margin-left:6px;font-size:11px">⌂</span>`:''}</div></div>`;
-      }).join('')
-    :`<div class="chart-empty">No ${isHG?'home gym ':''}${ex.skill} exercises available${isHG?' — mark exercises ⌂ in Library':''}</div>`;
   document.querySelector('.app').insertAdjacentHTML('beforeend',
     `<div class="swov" id="swov" onclick="closeOverlay('swov',event)">
       <div class="swsh" onclick="event.stopPropagation()">
         <div class="sw-hdl"></div>
-        <div class="fbet mb12">
+        <div class="fbet mb8">
           <div><div class="lbl">Swap${isHG?' · Home Gym Only':''} — ${ex.skill}</div><div style="font-family:var(--fn);font-size:14px;color:var(--t2)">${ex.name}</div></div>
           <button class="tba xbtn" onclick="closeOverlay('swov')">✕</button>
-        </div>${rows}
+        </div>
+        <input class="ins mb8" placeholder="Search entire library…" oninput="filterSwapPicker(this.value,'${cid}',${w},${d},'${exId}')">
+        <div id="swap-list">${swapRows(cid,w,d,exId,'')}</div>
       </div>
     </div>`);
 }
@@ -916,6 +941,7 @@ const SAMPLES=[
   {name:'Conventional Deadlift',skill:'Pull',focus:'Max Effort',category:'',metric:'reps'},
   {name:'Sumo Deadlift',skill:'Pull',focus:'Max Effort',category:'',metric:'reps'},
   {name:'3 Mat Deficit Trap Bar',skill:'Pull',focus:'Max Effort',category:'',metric:'reps'},
+  {name:'Trap Bar Pull',skill:'Pull',focus:'Max Effort',category:'',metric:'reps'},
   {name:'Axel Zerch Pickup',skill:'Pull',focus:'Max Effort',category:'',metric:'reps'},
   {name:'Romanian Deadlift',skill:'Pull',focus:'Dynamic',category:'',metric:'reps'},
   {name:'Zercher Sling Shrug',skill:'Pull',focus:'Dynamic',category:'',metric:'reps'},
@@ -942,6 +968,9 @@ const SAMPLES=[
   {name:'Trap Bar Pit Stop',skill:'Functional',focus:'Max Effort',category:'',metric:'metres'},
   {name:'Trap Bar Walk',skill:'Functional',focus:'Dynamic',category:'',metric:'metres'},
   {name:'Axel Zercher Walk',skill:'Functional',focus:'Max Effort',category:'',metric:'metres'},
+  {name:'Zercher Axel Pit Stops',skill:'Functional',focus:'Max Effort',category:'',metric:'metres'},
+  {name:'Sled Drag',skill:'Functional',focus:'Dynamic',category:'',metric:'metres'},
+  {name:'Sled Push',skill:'Functional',focus:'Dynamic',category:'',metric:'metres'},
   // ── Accessories — Back & Biceps ─────────────────────────────────────────────
   {name:'Lat Pulldown',skill:'Accessories',focus:'Dynamic',category:'back_bi',metric:'reps'},
   {name:'DB Row',skill:'Accessories',focus:'Dynamic',category:'back_bi',metric:'reps'},
@@ -980,6 +1009,7 @@ const SAMPLES=[
   {name:'Leg Extension',skill:'Accessories',focus:'Dynamic',category:'legs',metric:'reps'},
   // ── Accessories — Neck ──────────────────────────────────────────────────────
   {name:'KB Neck Sling',skill:'Accessories',focus:'Dynamic',category:'neck',metric:'reps'},
+  {name:'SSB Shrugs',skill:'Accessories',focus:'Dynamic',category:'neck',metric:'reps'},
   {name:'Prone Neck',skill:'Accessories',focus:'Dynamic',category:'neck',metric:'reps'},
   // ── Accessories — Grip ───────────────────────────────────────────────────────
   {name:'Axel Double Overhand',skill:'Accessories',focus:'Dynamic',category:'grip',metric:'reps'},
@@ -1248,7 +1278,7 @@ function vLib(c){
   <div class="stitle">Exercise Library</div>
   ${!S.lib.length?`<div class="card" style="border-color:var(--gd);text-align:center">
     <div style="font-family:var(--fn);font-size:14px;color:var(--t2);margin-bottom:10px">Load sample exercises or add your own to get started</div>
-    <button class="btnp" style="width:100%" onclick="loadSamples();nav('lib')">↓ Load 92 Exercises into Library</button>
+    <button class="btnp" style="width:100%" onclick="loadSamples();nav('lib')">↓ Load 95 Exercises into Library</button>
   </div>`:''}
   <div class="card">
     <div class="lbl">Add Exercise</div>
@@ -3260,7 +3290,7 @@ function showWelcomeDemo(){
   document.getElementById('demo-return')?.remove();
   if(document.getElementById('demo-ov'))return;
   const steps=[
-    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 92 exercises covering Squat, Pull, Push, Functional, and all Accessory categories. You can add your own custom exercises at any time.',action:'Go to Library',fn:"nav('lib')"},
+    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 95 exercises covering Squat, Pull, Push, Functional, and all Accessory categories. You can add your own custom exercises at any time.',action:'Go to Library',fn:"nav('lib')"},
     {n:'2',title:'Select Your Exercises',body:'In the Library, tick each exercise you want in your programme. Try to pick 3–6 Squat, 3–6 Pull, 3–6 Push, a few Carries, and a spread of Accessories.',action:null},
     {n:'3',title:'Configure Your Plan',body:'Go to the <b>Plan tab</b>. Set <b>1–5 resistance days</b> per week, <b>1–4 weeks</b>, and whether to include <b>1 or 2 ruck sessions</b> per week. Apex Fortis builds the full session structure automatically.',action:'Go to Plan',fn:"nav('cyc')"},
     {n:'4',title:'Generate & Start Training',body:'Tap <b>Generate Cycle</b>. Then go to Train, navigate with the Week and Day pills, and log your sets. Each exercise shows a <b>Suggested Target</b> based on your previous performance — tap <b>Apply</b> to use it.',action:'Go to Train',fn:"nav('train')"},
@@ -3406,7 +3436,7 @@ function vSettings(c){
   <div class="card">
     <div class="sect">Starter Library</div>
     <div style="font-size:13px;color:var(--t2);margin-bottom:10px;line-height:1.5">20 exercises across all skill categories to get started quickly.</div>
-    <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Exercise Library (92 movements)</button>
+    <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Exercise Library (95 movements)</button>
   </div>
   <div class="card">
     <div class="sect">Data Management</div>
@@ -3526,15 +3556,18 @@ function setupPWA(){
     try{
       const cv=document.createElement('canvas');cv.width=cv.height=size;
       const ctx=cv.getContext('2d');
-      // Fully opaque navy — fillRect is unconditional, never transparent
-      ctx.fillStyle='#0c1828';
+      // White background — blends with Android adaptive icon mask
+      ctx.fillStyle='#ffffff';
       ctx.fillRect(0,0,size,size);
-      // Gold AF — system fonts, large and centred
-      ctx.fillStyle='#c9a84c';
-      ctx.font=`900 ${Math.floor(size*0.72)}px Arial`;
-      ctx.textAlign='center';
+      // Navy A + gold F, measured for true optical centring
+      const fs=Math.floor(size*0.74);
+      ctx.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;
       ctx.textBaseline='middle';
-      ctx.fillText('AF',size/2,size/2);
+      const wA=ctx.measureText('A').width,wF=ctx.measureText('F').width;
+      const x0=(size-(wA+wF))/2;
+      ctx.textAlign='left';
+      ctx.fillStyle='#0c1828';ctx.fillText('A',x0,size/2);
+      ctx.fillStyle='#b8952f';ctx.fillText('F',x0+wA,size/2);
       // Convert to blob URL synchronously: dataURL → binary → Blob → objectURL
       const d=cv.toDataURL('image/png');
       const b=atob(d.split(',')[1]);
@@ -3554,7 +3587,7 @@ function setupPWA(){
       description:'Conjugate Strength Training',
       start_url:startUrl,scope:scope,
       display:'standalone',
-      background_color:'#0c1828',theme_color:'#0c1828',
+      background_color:'#ffffff',theme_color:'#0c1828',
       orientation:'portrait',
       icons:[
         {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
@@ -3576,7 +3609,7 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v7';
+const CV='af-cache-v8';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
