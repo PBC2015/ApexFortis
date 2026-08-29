@@ -20,16 +20,16 @@
       var ctx=cv.getContext('2d');
       ctx.fillStyle='#ffffff';ctx.fillRect(0,0,sz,sz);
       ctx.textAlign='left';ctx.textBaseline='alphabetic';
-      var FONT='"Arial Black","Helvetica Neue",Helvetica,Arial,sans-serif';
+      var FONT='"Roboto Condensed","Arial Narrow","Liberation Sans Narrow",sans-serif-condensed,"Arial Black",Arial,sans-serif';
       // Measure at a probe size, then scale so glyphs actually fill the canvas
       var probe=100;
       ctx.font='900 '+probe+'px '+FONT;
       var mAF=ctx.measureText('AF');
       var pw=mAF.width;
       var ph=(mAF.actualBoundingBoxAscent||probe*0.72)+(mAF.actualBoundingBoxDescent||0);
-      // "AF" bbox corners are empty ink (A tapers, F has no lower-right), so we can
-      // fill nearly the full width and let those corners fall outside the circle.
-      var scale=(sz*0.97)/pw;
+      // Condensed letters run much taller; cap height so they stay inside the mask.
+      // Width 97% or height 70% — whichever binds first.
+      var scale=Math.min((sz*0.97)/pw,(sz*0.70)/ph);
       var fs=probe*scale;
       ctx.font='900 '+fs+'px '+FONT;
       var wA=ctx.measureText('A').width,wAF=ctx.measureText('AF').width;
@@ -3573,15 +3573,15 @@ function setupPWA(){
       ctx.fillStyle='#ffffff';
       ctx.fillRect(0,0,size,size);
       ctx.textAlign='left';ctx.textBaseline='alphabetic';
-      const FONT='"Arial Black","Helvetica Neue",Helvetica,Arial,sans-serif';
+      const FONT='"Roboto Condensed","Arial Narrow","Liberation Sans Narrow",sans-serif-condensed,"Arial Black",Arial,sans-serif';
       // Measure real glyph bounds at a probe size, then scale to actually fill
       const probe=100;
       ctx.font=`900 ${probe}px ${FONT}`;
       const mAF=ctx.measureText('AF');
       const pw=mAF.width;
       const ph=(mAF.actualBoundingBoxAscent||probe*0.72)+(mAF.actualBoundingBoxDescent||0);
-      // Fill nearly full width — empty bbox corners may fall outside the circle mask
-      const scale=(size*0.97)/pw;
+      // Width 97% or height 70% — whichever binds first
+      const scale=Math.min((size*0.97)/pw,(size*0.70)/ph);
       const fs=probe*scale;
       ctx.font=`900 ${fs}px ${FONT}`;
       const wA=ctx.measureText('A').width,wAF=ctx.measureText('AF').width;
@@ -3630,7 +3630,7 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v11';
+const CV='af-cache-v12';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
