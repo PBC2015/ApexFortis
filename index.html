@@ -27,9 +27,9 @@
       var mAF=ctx.measureText('AF');
       var pw=mAF.width;
       var ph=(mAF.actualBoundingBoxAscent||probe*0.72)+(mAF.actualBoundingBoxDescent||0);
-      // Largest w x h rect that fits inside the circular mask: w^2 + h^2 = (0.99*sz)^2
-      var diag=Math.sqrt(pw*pw+ph*ph);
-      var scale=(sz*0.99)/diag;
+      // "AF" bbox corners are empty ink (A tapers, F has no lower-right), so we can
+      // fill nearly the full width and let those corners fall outside the circle.
+      var scale=(sz*0.97)/pw;
       var fs=probe*scale;
       ctx.font='900 '+fs+'px '+FONT;
       var wA=ctx.measureText('A').width,wAF=ctx.measureText('AF').width;
@@ -2500,15 +2500,17 @@ function rAFSAPEx(ex,sess,cid){
   const hasFail=ex.sets.some(s=>s.failed);
   const isCollapsed=exCollapsed[ex.id]!==false;
   let h=`<div class="exb ${hasFail?'has-fail':''}" style="border-left:3px solid var(--gd)">
-    <div class="exbh" onclick="toggleExCollapse('${ex.id}',event)">
-      ${moveBtns(ex,sess,cid)}
-      <div style="flex:1"><div class="exbn">${ex.name}</div><div class="exbr">${totalDone}/${goal} reps${goalReached?' · ✓ Done':''}</div></div>
-      <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
-        <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
-        <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▸':'▾'}</button>
+    <div class="exbh">
+      <div class="fbet">
+        ${moveBtns(ex,sess,cid)}
+        <div style="flex:1"><div class="exbn">${ex.name}</div><div class="exbr">${totalDone}/${goal} reps${goalReached?' · ✓ Done':''}</div></div>
+        <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+          <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
+          <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▸':'▾'}</button>
+        </div>
       </div>
+      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ AFSAP</span></div>
     </div>
-    <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ AFSAP</span></div>
     <div class="exby" style="${isCollapsed?'max-height:0;overflow:hidden':''}">`;
   if(!isCollapsed){
     // Goal + rest config
@@ -3578,9 +3580,8 @@ function setupPWA(){
       const mAF=ctx.measureText('AF');
       const pw=mAF.width;
       const ph=(mAF.actualBoundingBoxAscent||probe*0.72)+(mAF.actualBoundingBoxDescent||0);
-      // Largest w x h rect fitting inside the circular mask
-      const diag=Math.sqrt(pw*pw+ph*ph);
-      const scale=(size*0.99)/diag;
+      // Fill nearly full width — empty bbox corners may fall outside the circle mask
+      const scale=(size*0.97)/pw;
       const fs=probe*scale;
       ctx.font=`900 ${fs}px ${FONT}`;
       const wA=ctx.measureText('A').width,wAF=ctx.measureText('AF').width;
@@ -3629,7 +3630,7 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v10';
+const CV='af-cache-v11';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
