@@ -19,14 +19,26 @@
       var cv=document.createElement('canvas');cv.width=cv.height=sz;
       var ctx=cv.getContext('2d');
       ctx.fillStyle='#ffffff';ctx.fillRect(0,0,sz,sz);
-      var fs=Math.floor(sz*0.74);
-      ctx.font='900 '+fs+'px "Arial Black",Arial,sans-serif';
-      ctx.textBaseline='middle';
-      var wA=ctx.measureText('A').width,wF=ctx.measureText('F').width;
-      var total=wA+wF,x0=(sz-total)/2;
-      ctx.textAlign='left';
-      ctx.fillStyle='#0c1828';ctx.fillText('A',x0,sz/2);
-      ctx.fillStyle='#b8952f';ctx.fillText('F',x0+wA,sz/2);
+      ctx.textAlign='left';ctx.textBaseline='alphabetic';
+      var FONT='"Arial Black","Helvetica Neue",Helvetica,Arial,sans-serif';
+      // Measure at a probe size, then scale so glyphs actually fill the canvas
+      var probe=100;
+      ctx.font='900 '+probe+'px '+FONT;
+      var mAF=ctx.measureText('AF');
+      var pw=mAF.width;
+      var ph=(mAF.actualBoundingBoxAscent||probe*0.72)+(mAF.actualBoundingBoxDescent||0);
+      // Largest w x h rect that fits inside the circular mask: w^2 + h^2 = (0.99*sz)^2
+      var diag=Math.sqrt(pw*pw+ph*ph);
+      var scale=(sz*0.99)/diag;
+      var fs=probe*scale;
+      ctx.font='900 '+fs+'px '+FONT;
+      var wA=ctx.measureText('A').width,wAF=ctx.measureText('AF').width;
+      var m2=ctx.measureText('AF');
+      var a2=m2.actualBoundingBoxAscent||fs*0.72,d2=m2.actualBoundingBoxDescent||0;
+      var x0=(sz-wAF)/2;
+      var baseline=sz/2+(a2-d2)/2;
+      ctx.fillStyle='#0c1828';ctx.fillText('A',x0,baseline);
+      ctx.fillStyle='#b8952f';ctx.fillText('F',x0+wA,baseline);
       var d=cv.toDataURL('image/png'),b=atob(d.split(',')[1]);
       var u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
       return URL.createObjectURL(new Blob([u],{type:'image/png'}));
@@ -38,8 +50,7 @@
       display:'standalone',background_color:'#ffffff',theme_color:'#0c1828',orientation:'portrait',
       icons:[
         {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
-        {src:u512,sizes:'512x512',type:'image/png',purpose:'maskable'},
-        {src:u512,sizes:'512x512',type:'image/png',purpose:'any'}
+        {src:u512,sizes:'512x512',type:'image/png',purpose:'maskable'}
       ]};
     var mUrl=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/manifest+json'}));
     document.getElementById('pwa-manifest').href=mUrl;
@@ -2490,13 +2501,14 @@ function rAFSAPEx(ex,sess,cid){
   const isCollapsed=exCollapsed[ex.id]!==false;
   let h=`<div class="exb ${hasFail?'has-fail':''}" style="border-left:3px solid var(--gd)">
     <div class="exbh" onclick="toggleExCollapse('${ex.id}',event)">
-      <div style="flex:1">
-        <div class="exbn">${ex.name}</div>
-        <div class="exbr">AFSAP · ${totalDone}/${goal} reps${goalReached?' · ✓ Done':''}</div>
+      ${moveBtns(ex,sess,cid)}
+      <div style="flex:1"><div class="exbn">${ex.name}</div><div class="exbr">${totalDone}/${goal} reps${goalReached?' · ✓ Done':''}</div></div>
+      <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+        <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
+        <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▸':'▾'}</button>
       </div>
-      <span style="font-family:var(--fn);font-size:10px;font-weight:700;color:var(--gd);background:rgba(201,168,76,.1);border:1px solid var(--gdk);padding:2px 6px;border-radius:8px;margin-right:6px">◎ AFSAP</span>
-      <button class="exbc" onclick="toggleExCollapse('${ex.id}',event)">${isCollapsed?'▸':'▾'}</button>
     </div>
+    <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ AFSAP</span></div>
     <div class="exby" style="${isCollapsed?'max-height:0;overflow:hidden':''}">`;
   if(!isCollapsed){
     // Goal + rest config
@@ -3556,18 +3568,28 @@ function setupPWA(){
     try{
       const cv=document.createElement('canvas');cv.width=cv.height=size;
       const ctx=cv.getContext('2d');
-      // White background — blends with Android adaptive icon mask
       ctx.fillStyle='#ffffff';
       ctx.fillRect(0,0,size,size);
-      // Navy A + gold F, measured for true optical centring
-      const fs=Math.floor(size*0.74);
-      ctx.font=`900 ${fs}px "Arial Black",Arial,sans-serif`;
-      ctx.textBaseline='middle';
-      const wA=ctx.measureText('A').width,wF=ctx.measureText('F').width;
-      const x0=(size-(wA+wF))/2;
-      ctx.textAlign='left';
-      ctx.fillStyle='#0c1828';ctx.fillText('A',x0,size/2);
-      ctx.fillStyle='#b8952f';ctx.fillText('F',x0+wA,size/2);
+      ctx.textAlign='left';ctx.textBaseline='alphabetic';
+      const FONT='"Arial Black","Helvetica Neue",Helvetica,Arial,sans-serif';
+      // Measure real glyph bounds at a probe size, then scale to actually fill
+      const probe=100;
+      ctx.font=`900 ${probe}px ${FONT}`;
+      const mAF=ctx.measureText('AF');
+      const pw=mAF.width;
+      const ph=(mAF.actualBoundingBoxAscent||probe*0.72)+(mAF.actualBoundingBoxDescent||0);
+      // Largest w x h rect fitting inside the circular mask
+      const diag=Math.sqrt(pw*pw+ph*ph);
+      const scale=(size*0.99)/diag;
+      const fs=probe*scale;
+      ctx.font=`900 ${fs}px ${FONT}`;
+      const wA=ctx.measureText('A').width,wAF=ctx.measureText('AF').width;
+      const m2=ctx.measureText('AF');
+      const a2=m2.actualBoundingBoxAscent||fs*0.72,d2=m2.actualBoundingBoxDescent||0;
+      const x0=(size-wAF)/2;
+      const baseline=size/2+(a2-d2)/2;
+      ctx.fillStyle='#0c1828';ctx.fillText('A',x0,baseline);
+      ctx.fillStyle='#b8952f';ctx.fillText('F',x0+wA,baseline);
       // Convert to blob URL synchronously: dataURL → binary → Blob → objectURL
       const d=cv.toDataURL('image/png');
       const b=atob(d.split(',')[1]);
@@ -3591,9 +3613,7 @@ function setupPWA(){
       orientation:'portrait',
       icons:[
         {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
-        {src:u192,sizes:'192x192',type:'image/png',purpose:'any'},
-        {src:u512,sizes:'512x512',type:'image/png',purpose:'maskable'},
-        {src:u512,sizes:'512x512',type:'image/png',purpose:'any'}
+        {src:u512,sizes:'512x512',type:'image/png',purpose:'maskable'}
       ]
     };
     const mUrl=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));
@@ -3609,7 +3629,7 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v8';
+const CV='af-cache-v10';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
