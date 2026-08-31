@@ -1944,11 +1944,19 @@ function copyCycleSessions(prev){
           carried:Object.keys(carried).length?carried:null,
           carriedVals:Object.keys(carriedVals).length?carriedVals:null};
       }):[{...mkSet(),equipment:prevEquip}];
+      const afCarried={},afCarriedVals={};
+      if(ex.isAFSAP){
+        if(ex.afWeight){afCarried.afWeight=true;afCarriedVals.afWeight=String(ex.afWeight);}
+        if(ex.afNotes){afCarried.afNotes=true;afCarriedVals.afNotes=String(ex.afNotes);}
+      }
       const nx={id:uid(),libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
         role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
         weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
         restDefault:ex.restDefault||'',
         isAFSAP:ex.isAFSAP||false,repGoal:ex.repGoal||100,afRest:ex.afRest||60,
+        afWeight:'',afNotes:'',
+        afCarried:Object.keys(afCarried).length?afCarried:null,
+        afCarriedVals:Object.keys(afCarriedVals).length?afCarriedVals:null,
         sets:newSets};
       if(ex.supersetWith){
         nx.supersetWith={id:uid(),libId:ex.supersetWith.libId,
@@ -2433,6 +2441,25 @@ function moveBtns(ex,sess,cid){
 // ─── AFSAP (As Few Sets As Possible) ─────────────────────────────────────────
 function updAFSAPGoal(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.repGoal=parseInt(v)||100;save();}
 function updAFSAPRest(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.afRest=parseInt(v)||60;save();}
+function updAFSAPField(cid,w,d,eid,f,v){
+  const ex=gEx(cid,w,d,eid);if(!ex)return;
+  const inp=document.getElementById('sf-'+eid+(f==='afWeight'?'-afweight':'-afnotes'));
+  if(v===''){
+    ex[f]='';
+    if(ex.afCarriedVals&&ex.afCarriedVals[f]){
+      if(!ex.afCarried)ex.afCarried={};
+      ex.afCarried[f]=true;
+      if(inp)inp.classList.add('carried-val');
+    }
+  }else{
+    ex[f]=v;
+    if(ex.afCarried&&ex.afCarried[f]){
+      ex.afCarried[f]=false;
+      if(inp)inp.classList.remove('carried-val');
+    }
+  }
+  save();
+}
 function startAFSAPRest(cid,w,d,eid){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
   ex.sets.push({...mkSet(),reps:'',carried:null});
@@ -2486,7 +2513,7 @@ function doAddAFSAP(cid,w,d,libId){
   const lib=S.lib.find(l=>l.id===libId);
   if(!cyc||!lib)return;
   const sess=cyc.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
-  const newEx={...mkEx({...lib,role:'manual'}),isAFSAP:true,repGoal:100,afRest:60};
+  const newEx={...mkEx({...lib,role:'manual'}),isAFSAP:true,repGoal:100,afRest:60,afWeight:'',afNotes:''};
   const arr=[...sess.exercises,newEx];arr.forEach((e,i)=>e.sortOrder=i);
   sess.exercises=arr;save();closeOverlay('swov');rv();notify('AFSAP: '+lib.name);
 }
@@ -2513,26 +2540,39 @@ function rAFSAPEx(ex,sess,cid){
     </div>
     <div class="exby" style="${isCollapsed?'max-height:0;overflow:hidden':''}">`;
   if(!isCollapsed){
-    // Goal + rest config
-    h+=`<div style="display:flex;gap:12px;margin-bottom:12px;align-items:flex-end">
+    const carriedW=ex.afCarried?.afWeight,carriedN=ex.afCarried?.afNotes;
+    // Goal, Rest, Weight, Notes — all fixed for the whole AFSAP exercise
+    h+=`<div style="display:flex;gap:10px;margin-bottom:10px">
       <div style="flex:1"><div class="lbl mb4">Rep Goal</div>
-        <input class="ins" type="number" inputmode="numeric" value="${goal}" style="max-width:90px"
+        <input class="ins" type="number" inputmode="numeric" value="${goal}"
           oninput="updAFSAPGoal('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
       </div>
       <div style="flex:1"><div class="lbl mb4">Rest (sec)</div>
-        <input class="ins" type="number" inputmode="numeric" value="${rest}" style="max-width:90px"
+        <input class="ins" type="number" inputmode="numeric" value="${rest}"
           oninput="updAFSAPRest('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
       </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <div style="flex:1"><div class="lbl mb4">${uw()}</div>
+        <input id="sf-${ex.id}-afweight" class="ins ${carriedW?'carried-val':''}" type="number" inputmode="decimal"
+          value="${ex.afWeight||''}" placeholder="${carriedW&&ex.afCarriedVals?ex.afCarriedVals.afWeight:'0'}"
+          oninput="updAFSAPField('${cid}',${sess.week},${sess.day},'${ex.id}','afWeight',this.value)">
+      </div>
+      <div style="flex:2"><div class="lbl mb4">Notes</div>
+        <input id="sf-${ex.id}-afnotes" class="ins ${carriedN?'carried-val':''}" type="text"
+          value="${ex.afNotes||''}" placeholder="${carriedN&&ex.afCarriedVals?ex.afCarriedVals.afNotes:'…'}"
+          oninput="updAFSAPField('${cid}',${sess.week},${sess.day},'${ex.id}','afNotes',this.value)">
+      </div>
     </div>`;
-    // Set rows
+    // Set rows — reps only, since weight/rest/notes are fixed for the whole exercise
     ex.sets.forEach((s,si)=>{
-      const carried=s.carried?.reps;
+      const carriedR=s.carried?.reps;
       h+=`<div class="setc ${s.failed?'failed':''}" style="display:flex;align-items:center;gap:10px">
         <div style="font-family:var(--fn);font-size:13px;font-weight:700;color:var(--t2);min-width:44px">Set ${si+1}</div>
         <div class="sf" style="flex:1"><label>Reps</label>
           <input id="sf-${ex.id}-${si}-reps" type="number" inputmode="numeric"
-            value="${s.reps||''}" placeholder="${carried&&s.carriedVals?s.carriedVals.reps:'0'}"
-            class="${carried?'carried-val':''}"
+            value="${s.reps||''}" placeholder="${carriedR&&s.carriedVals?s.carriedVals.reps:'0'}"
+            class="${carriedR?'carried-val':''}"
             oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value);refreshAFSAPCounter('${ex.id}',gEx('${cid}',${sess.week},${sess.day},'${ex.id}').sets,${goal})">
         </div>
         ${si>0?`<button class="fail-btn ${s.failed?'on':''}" onclick="toggleFail('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>`:''}
