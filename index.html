@@ -589,7 +589,7 @@ function startKeepAlive(){
     const o=ac.createOscillator(),g=ac.createGain();
     o.connect(g);g.connect(ac.destination);
     o.frequency.value=20;o.type='sine';
-    g.gain.setValueAtTime(0.0001,ac.currentTime);
+    g.gain.setValueAtTime(0.003,ac.currentTime);
     o.start();
     _keepAlive={o,g};
   }catch(e){}
@@ -629,10 +629,21 @@ function startTimer(secs,lbl){
     const et=now+secs;
     tone(880,et,0.3);tone(1046,et+0.35,0.3);tone(1318,et+0.7,0.35);tone(1568,et+1.05,0.75);
   }catch(e){}
-  // 20s verbal
+  // 20s verbal — fresh AudioContext + audible tone precedes speech (keeps Chrome
+  // from throttling this timer when the screen is off, same as the 10s handler)
   if(secs>=20){
     TM._t20=setTimeout(()=>{
+      try{
+        const ac3=new(window.AudioContext||window.webkitAudioContext)();
+        const o=ac3.createOscillator(),g=ac3.createGain();
+        o.connect(g);g.connect(ac3.destination);
+        o.frequency.value=740;o.type='square';
+        g.gain.setValueAtTime(0.7,ac3.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001,ac3.currentTime+0.2);
+        o.start();o.stop(ac3.currentTime+0.22);
+      }catch(e){}
       try{const u=new SpeechSynthesisUtterance('twenty');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
+      if(navigator.vibrate)navigator.vibrate([80]);
     },Math.max(0,(secs-20)*1000-400));
   }
   // 10s beep + verbal + vibration — fresh AudioContext in setTimeout
@@ -1924,13 +1935,34 @@ function applyManualAdditions(sessions,additions){
 }
 let _nextCycPending=null;
 function copyCycleSessions(prev){
-  // Deep-copy a cycle's session structure — exercises, order, supersets, AFSAP config.
+  // Deep-copy a cycle's session structure — exercises, order, supersets, Total Rep Method config.
   // Wildcards are excluded. All logged data cleared; previous values become grey ghosts.
+  // If an exercise had no genuine completed data in the immediate previous cycle (e.g. it was
+  // missed), fall back through earlier sibling cycles at the same day to find the last time
+  // it was actually completed, and use that as the ghost reference instead.
+  const sibs=siblingCycles(prev.id)
+    .filter(c=>(c.cycleNumber||1)<=(prev.cycleNumber||1))
+    .sort((a,b)=>(b.cycleNumber||1)-(a.cycleNumber||1)); // most recent first, prev included
+  function hasRealData(ex){
+    if(ex.isTRM)return(ex.sets||[]).some(s=>!s.failed&&parseFloat(s.reps)>0);
+    return(ex.sets||[]).some(s=>!s.failed&&parseFloat(s.weight)>0);
+  }
+  function findSource(ex,day){
+    if(hasRealData(ex))return ex;
+    for(const sib of sibs){
+      if(sib.id===prev.id)continue; // prev already checked as `ex` itself
+      const sSess=sib.sessions.find(s=>s.day===day);if(!sSess)continue;
+      const cand=(sSess.exercises||[]).find(e=>e.libId===ex.libId&&e.role===ex.role&&!e.isWildcard);
+      if(cand&&hasRealData(cand))return cand;
+    }
+    return ex; // nothing better found — use prev's (likely empty) data as-is
+  }
   return prev.sessions.map(sess=>{
     const srcExs=(sess.exercises||[]).filter(e=>!e.isWildcard);
     const exercises=srcExs.map(ex=>{
-      const prevEquip=(ex.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
-      const prevSets=ex.sets||[];
+      const src=findSource(ex,sess.day); // may be an earlier cycle's version of this exercise
+      const prevEquip=(src.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
+      const prevSets=src.sets||[];
       const carryFields=['weight','reps','sets','rpe','rest','equipment','notes'];
       const newSets=prevSets.length>0?prevSets.map(ps=>{
         const carried={},carriedVals={};
@@ -1944,19 +1976,20 @@ function copyCycleSessions(prev){
           carried:Object.keys(carried).length?carried:null,
           carriedVals:Object.keys(carriedVals).length?carriedVals:null};
       }):[{...mkSet(),equipment:prevEquip}];
-      const afCarried={},afCarriedVals={};
-      if(ex.isAFSAP){
-        if(ex.afWeight){afCarried.afWeight=true;afCarriedVals.afWeight=String(ex.afWeight);}
-        if(ex.afNotes){afCarried.afNotes=true;afCarriedVals.afNotes=String(ex.afNotes);}
+      const trmCarried={},trmCarriedVals={};
+      if(ex.isTRM){
+        if(src.trmWeight){trmCarried.trmWeight=true;trmCarriedVals.trmWeight=String(src.trmWeight);}
+        if(src.trmEquipment){trmCarried.trmEquipment=true;trmCarriedVals.trmEquipment=String(src.trmEquipment);}
+        if(src.trmNotes){trmCarried.trmNotes=true;trmCarriedVals.trmNotes=String(src.trmNotes);}
       }
       const nx={id:uid(),libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
         role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
         weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
         restDefault:ex.restDefault||'',
-        isAFSAP:ex.isAFSAP||false,repGoal:ex.repGoal||100,afRest:ex.afRest||60,
-        afWeight:'',afNotes:'',
-        afCarried:Object.keys(afCarried).length?afCarried:null,
-        afCarriedVals:Object.keys(afCarriedVals).length?afCarriedVals:null,
+        isTRM:ex.isTRM||false,repGoal:ex.repGoal||100,trmRest:ex.trmRest||60,
+        trmWeight:'',trmEquipment:'',trmNotes:'',
+        trmCarried:Object.keys(trmCarried).length?trmCarried:null,
+        trmCarriedVals:Object.keys(trmCarriedVals).length?trmCarriedVals:null,
         sets:newSets};
       if(ex.supersetWith){
         nx.supersetWith={id:uid(),libId:ex.supersetWith.libId,
@@ -2360,8 +2393,8 @@ function vTrain(c){
     <button class="btn btns mb12" style="width:100%;color:var(--gd);border-color:var(--gd)" onclick="addWildcard('${cyc.id}',${sess.week},${sess.day})">
       ⚡ Add Wildcard
     </button>
-    <button class="btn btns mb12" style="width:100%;color:var(--gd);border-color:var(--gdk)" onclick="addAFSAPExToSession('${cyc.id}',${sess.week},${sess.day})">
-      ◎ Add AFSAP Exercise
+    <button class="btn btns mb12" style="width:100%;color:var(--gd);border-color:var(--gdk)" onclick="addTRMExToSession('${cyc.id}',${sess.week},${sess.day})">
+      ◎ Add Total Rep Method Exercise
     </button>`;
   }
   c.innerHTML=h;
@@ -2392,7 +2425,7 @@ function rSess(sess,cid){
   if(!sess.exercises.length)return'<div class="empty">—<h3>No exercises planned</h3></div>';
   const sorted=[...sess.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
   sorted.forEach(ex=>{if(!(ex.id in exCollapsed))exCollapsed[ex.id]=true;});
-  return sorted.map(ex=>ex.isAFSAP?rAFSAPEx(ex,sess,cid):ex.supersetWith?rSSEx(ex,sess,cid):rEx(ex,sess,cid)).join('');
+  return sorted.map(ex=>ex.isTRM?rTRMEx(ex,sess,cid):ex.supersetWith?rSSEx(ex,sess,cid):rEx(ex,sess,cid)).join('');
 }
 
 let exCollapsed={};
@@ -2438,35 +2471,36 @@ function moveBtns(ex,sess,cid){
     <button class="move-btn" ${canDown?'':'style="opacity:.25;pointer-events:none"'} onclick="moveEx('${cid}',${sess.week},${sess.day},'${ex.id}',1)" title="Move down">▼</button>
   </div>`;
 }
-// ─── AFSAP (As Few Sets As Possible) ─────────────────────────────────────────
-function updAFSAPGoal(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.repGoal=parseInt(v)||100;save();}
-function updAFSAPRest(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.afRest=parseInt(v)||60;save();}
-function updAFSAPField(cid,w,d,eid,f,v){
+// ─── TOTAL REP METHOD (as few sets as possible to hit a rep goal) ───────────
+function updTRMGoal(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.repGoal=parseInt(v)||100;save();}
+function updTRMRest(cid,w,d,eid,v){const ex=gEx(cid,w,d,eid);if(!ex)return;ex.trmRest=parseInt(v)||60;save();}
+function updTRMField(cid,w,d,eid,f,v){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
-  const inp=document.getElementById('sf-'+eid+(f==='afWeight'?'-afweight':'-afnotes'));
+  const idMap={trmWeight:'-trmweight',trmEquipment:'-trmequipment',trmNotes:'-trmnotes'};
+  const inp=document.getElementById('sf-'+eid+(idMap[f]||''));
   if(v===''){
     ex[f]='';
-    if(ex.afCarriedVals&&ex.afCarriedVals[f]){
-      if(!ex.afCarried)ex.afCarried={};
-      ex.afCarried[f]=true;
+    if(ex.trmCarriedVals&&ex.trmCarriedVals[f]){
+      if(!ex.trmCarried)ex.trmCarried={};
+      ex.trmCarried[f]=true;
       if(inp)inp.classList.add('carried-val');
     }
   }else{
     ex[f]=v;
-    if(ex.afCarried&&ex.afCarried[f]){
-      ex.afCarried[f]=false;
+    if(ex.trmCarried&&ex.trmCarried[f]){
+      ex.trmCarried[f]=false;
       if(inp)inp.classList.remove('carried-val');
     }
   }
   save();
 }
-function startAFSAPRest(cid,w,d,eid){
+function startTRMRest(cid,w,d,eid){
   const ex=gEx(cid,w,d,eid);if(!ex)return;
   ex.sets.push({...mkSet(),reps:'',carried:null});
   save();rv();
-  startTimer(ex.afRest||60,ex.name+' — AFSAP');
+  startTimer(ex.trmRest||60,ex.name+' — Total Rep Method');
 }
-function refreshAFSAPCounter(eid,sets,goal){
+function refreshTRMCounter(eid,sets,goal){
   const el=document.getElementById('afsap-rem-'+eid);if(!el)return;
   const done=sets.reduce((t,s)=>t+(parseFloat(s.reps)||0),0);
   const g=goal||100;
@@ -2478,11 +2512,11 @@ function refreshAFSAPCounter(eid,sets,goal){
   const bar=document.getElementById('afsap-bar-'+eid);
   if(bar)bar.style.width=pct+'%';
 }
-function addAFSAPExToSession(cid,w,d){
+function addTRMExToSession(cid,w,d){
   function rows(q){
     const fl=q?S.lib.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())):S.lib;
     return fl.sort((a,b)=>a.name.localeCompare(b.name)).map(l=>
-      `<div class="sw-row" onclick="doAddAFSAP('${cid}',${w},${d},'${l.id}')">
+      `<div class="sw-row" onclick="doAddTRM('${cid}',${w},${d},'${l.id}')">
         <div class="sw-name">${l.name}</div>
         <div class="fwrap">${sb(l.skill)}${fb(l.focus)}</div>
       </div>`).join('');
@@ -2492,34 +2526,34 @@ function addAFSAPExToSession(cid,w,d){
       <div class="swsh" onclick="event.stopPropagation()">
         <div class="sw-hdl"></div>
         <div class="fbet mb8">
-          <div><div class="lbl">AFSAP Exercise</div><div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:2px">As Few Sets As Possible</div></div>
+          <div><div class="lbl">Total Rep Method</div><div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:2px">Hit the rep goal in as few sets as possible</div></div>
           <button class="tba xbtn" onclick="closeOverlay('swov')">✕</button>
         </div>
-        <input class="ins mb8" placeholder="Search library…" oninput="filterAFSAPPicker(this.value,'${cid}',${w},${d})">
+        <input class="ins mb8" placeholder="Search library…" oninput="filterTRMPicker(this.value,'${cid}',${w},${d})">
         <div id="afsap-picker">${rows('')}</div>
       </div>
     </div>`);
 }
-function filterAFSAPPicker(q,cid,w,d){
+function filterTRMPicker(q,cid,w,d){
   const el=document.getElementById('afsap-picker');if(!el)return;
   const fl=q?S.lib.filter(e=>e.name.toLowerCase().includes(q.toLowerCase())):S.lib;
   el.innerHTML=fl.sort((a,b)=>a.name.localeCompare(b.name)).map(l=>
-    `<div class="sw-row" onclick="doAddAFSAP('${cid}',${w},${d},'${l.id}')">
+    `<div class="sw-row" onclick="doAddTRM('${cid}',${w},${d},'${l.id}')">
       <div class="sw-name">${l.name}</div><div class="fwrap">${sb(l.skill)}</div>
     </div>`).join('');
 }
-function doAddAFSAP(cid,w,d,libId){
+function doAddTRM(cid,w,d,libId){
   const cyc=S.cycles.find(c=>c.id===cid);
   const lib=S.lib.find(l=>l.id===libId);
   if(!cyc||!lib)return;
   const sess=cyc.sessions.find(s=>s.week===w&&s.day===d);if(!sess)return;
-  const newEx={...mkEx({...lib,role:'manual'}),isAFSAP:true,repGoal:100,afRest:60,afWeight:'',afNotes:''};
+  const newEx={...mkEx({...lib,role:'manual'}),isTRM:true,repGoal:100,trmRest:60,trmWeight:'',trmEquipment:'',trmNotes:''};
   const arr=[...sess.exercises,newEx];arr.forEach((e,i)=>e.sortOrder=i);
-  sess.exercises=arr;save();closeOverlay('swov');rv();notify('AFSAP: '+lib.name);
+  sess.exercises=arr;save();closeOverlay('swov');rv();notify('Total Rep Method: '+lib.name);
 }
-function rAFSAPEx(ex,sess,cid){
+function rTRMEx(ex,sess,cid){
   const goal=ex.repGoal||100;
-  const rest=ex.afRest||60;
+  const rest=ex.trmRest||60;
   const totalDone=ex.sets.reduce((t,s)=>t+(parseFloat(s.reps)||0),0);
   const rem=Math.max(0,goal-totalDone);
   const pct=Math.min(100,Math.round(totalDone/goal*100));
@@ -2536,35 +2570,41 @@ function rAFSAPEx(ex,sess,cid){
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▸':'▾'}</button>
         </div>
       </div>
-      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ AFSAP</span></div>
+      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ Total Rep</span></div>
     </div>
     <div class="exby" style="${isCollapsed?'max-height:0;overflow:hidden':''}">`;
   if(!isCollapsed){
-    const carriedW=ex.afCarried?.afWeight,carriedN=ex.afCarried?.afNotes;
-    // Goal, Rest, Weight, Notes — all fixed for the whole AFSAP exercise
+    const carriedW=ex.trmCarried?.trmWeight,carriedEq=ex.trmCarried?.trmEquipment,carriedN=ex.trmCarried?.trmNotes;
+    // Goal, Rest, Weight, Equipment, Notes — all fixed for the whole Total Rep Method exercise
     h+=`<div style="display:flex;gap:10px;margin-bottom:10px">
       <div style="flex:1"><div class="lbl mb4">Rep Goal</div>
         <input class="ins" type="number" inputmode="numeric" value="${goal}"
-          oninput="updAFSAPGoal('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
+          oninput="updTRMGoal('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
       </div>
       <div style="flex:1"><div class="lbl mb4">Rest (sec)</div>
         <input class="ins" type="number" inputmode="numeric" value="${rest}"
-          oninput="updAFSAPRest('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
+          oninput="updTRMRest('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
       </div>
     </div>
-    <div style="display:flex;gap:10px;margin-bottom:12px">
+    <div style="display:flex;gap:10px;margin-bottom:10px">
       <div style="flex:1"><div class="lbl mb4">${uw()}</div>
-        <input id="sf-${ex.id}-afweight" class="ins ${carriedW?'carried-val':''}" type="number" inputmode="decimal"
-          value="${ex.afWeight||''}" placeholder="${carriedW&&ex.afCarriedVals?ex.afCarriedVals.afWeight:'0'}"
-          oninput="updAFSAPField('${cid}',${sess.week},${sess.day},'${ex.id}','afWeight',this.value)">
+        <input id="sf-${ex.id}-trmweight" class="ins ${carriedW?'carried-val':''}" type="number" inputmode="decimal"
+          value="${ex.trmWeight||''}" placeholder="${carriedW&&ex.trmCarriedVals?ex.trmCarriedVals.trmWeight:'0'}"
+          oninput="updTRMField('${cid}',${sess.week},${sess.day},'${ex.id}','trmWeight',this.value)">
       </div>
-      <div style="flex:2"><div class="lbl mb4">Notes</div>
-        <input id="sf-${ex.id}-afnotes" class="ins ${carriedN?'carried-val':''}" type="text"
-          value="${ex.afNotes||''}" placeholder="${carriedN&&ex.afCarriedVals?ex.afCarriedVals.afNotes:'…'}"
-          oninput="updAFSAPField('${cid}',${sess.week},${sess.day},'${ex.id}','afNotes',this.value)">
+      <div style="flex:2"><div class="lbl mb4">Equipment</div>
+        <input id="sf-${ex.id}-trmequipment" class="ins ${carriedEq?'carried-val':''}" type="text"
+          value="${ex.trmEquipment||''}" placeholder="${carriedEq&&ex.trmCarriedVals?ex.trmCarriedVals.trmEquipment:'Barbell, DB…'}"
+          oninput="updTRMField('${cid}',${sess.week},${sess.day},'${ex.id}','trmEquipment',this.value)">
       </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div class="lbl mb4">Notes</div>
+      <input id="sf-${ex.id}-trmnotes" class="ins ${carriedN?'carried-val':''}" type="text" style="width:100%"
+        value="${ex.trmNotes||''}" placeholder="${carriedN&&ex.trmCarriedVals?ex.trmCarriedVals.trmNotes:'…'}"
+        oninput="updTRMField('${cid}',${sess.week},${sess.day},'${ex.id}','trmNotes',this.value)">
     </div>`;
-    // Set rows — reps only, since weight/rest/notes are fixed for the whole exercise
+    // Set rows — reps only, since weight/rest/equipment/notes are fixed for the whole exercise
     ex.sets.forEach((s,si)=>{
       const carriedR=s.carried?.reps;
       h+=`<div class="setc ${s.failed?'failed':''}" style="display:flex;align-items:center;gap:10px">
@@ -2573,7 +2613,7 @@ function rAFSAPEx(ex,sess,cid){
           <input id="sf-${ex.id}-${si}-reps" type="number" inputmode="numeric"
             value="${s.reps||''}" placeholder="${carriedR&&s.carriedVals?s.carriedVals.reps:'0'}"
             class="${carriedR?'carried-val':''}"
-            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value);refreshAFSAPCounter('${ex.id}',gEx('${cid}',${sess.week},${sess.day},'${ex.id}').sets,${goal})">
+            oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value);refreshTRMCounter('${ex.id}',gEx('${cid}',${sess.week},${sess.day},'${ex.id}').sets,${goal})">
         </div>
         ${si>0?`<button class="fail-btn ${s.failed?'on':''}" onclick="toggleFail('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>`:''}
       </div>`;
@@ -2586,7 +2626,7 @@ function rAFSAPEx(ex,sess,cid){
       </div>
     </div>`;
     // Rest + Next Set — always available; label changes after goal
-    h+=`<button class="rest-btn" style="width:100%;margin-top:4px${goalReached?';border-color:var(--g);color:var(--g2)':''}" onclick="startAFSAPRest('${cid}',${sess.week},${sess.day},'${ex.id}')">
+    h+=`<button class="rest-btn" style="width:100%;margin-top:4px${goalReached?';border-color:var(--g);color:var(--g2)':''}" onclick="startTRMRest('${cid}',${sess.week},${sess.day},'${ex.id}')">
       ${goalReached?`⏱ Rest ${fmtS(rest)} + Add Bonus Set`:`⏱ Rest ${fmtS(rest)} + Next Set`}
     </button>`;
     // Remove button
