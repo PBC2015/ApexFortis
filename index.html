@@ -2551,6 +2551,12 @@ function doAddTRM(cid,w,d,libId){
   const arr=[...sess.exercises,newEx];arr.forEach((e,i)=>e.sortOrder=i);
   sess.exercises=arr;save();closeOverlay('swov');rv();notify('Total Rep Method: '+lib.name);
 }
+function toggleTRMWildcard(cid,w,d,eid){
+  const ex=gEx(cid,w,d,eid);if(!ex)return;
+  ex.isWildcard=!ex.isWildcard;
+  save();rv();
+  notify(ex.isWildcard?'Marked as Wildcard — won\'t carry to future cycles':'No longer a Wildcard — will carry forward');
+}
 function rTRMEx(ex,sess,cid){
   const goal=ex.repGoal||100;
   const rest=ex.trmRest||60;
@@ -2566,11 +2572,12 @@ function rTRMEx(ex,sess,cid){
         ${moveBtns(ex,sess,cid)}
         <div style="flex:1"><div class="exbn">${ex.name}</div><div class="exbr">${totalDone}/${goal} reps${goalReached?' · ✓ Done':''}</div></div>
         <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+          <button class="sw-btn ${ex.isWildcard?'on':''}" style="${ex.isWildcard?'color:var(--gd);border-color:var(--gd)':''}" onclick="toggleTRMWildcard('${cid}',${sess.week},${sess.day},'${ex.id}')" title="${ex.isWildcard?'Remove Wildcard status':'Mark as Wildcard'}">⚡</button>
           <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▸':'▾'}</button>
         </div>
       </div>
-      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ Total Rep</span></div>
+      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ Total Rep</span>${ex.isWildcard?`<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">⚡ Wildcard</span>`:''}</div>
     </div>
     <div class="exby" style="${isCollapsed?'max-height:0;overflow:hidden':''}">`;
   if(!isCollapsed){
@@ -3710,7 +3717,7 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v12';
+const CV='af-cache-v13';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
