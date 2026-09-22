@@ -385,7 +385,7 @@ function save(){try{localStorage.setItem(SK,JSON.stringify(S));}catch(e){}}
 function def(){return{
   tab:'lib',trainDays:3,hasRuck:true,hasRuck2:false,cw:4,
   lib:[],cycles:[],cid:null,wk:0,dy:0,
-  prs:[],prFavs:[],sel:[],stEx:null,stTab:'over',onboarded:false,
+  prs:[],prFavs:[],sel:[],stEx:null,stTab:'over',onboarded:false,berserker:false,
   name:'',bw:'',unit:'kg',defRest:60,libSearch:'',
   deloadWeeks:{},homeGymDays:[],ruckUnit:'mi'
 };}
@@ -2396,11 +2396,11 @@ function vTrain(c){
   <div class="pnav" style="margin-bottom:6px">
     ${dLbls.map((l,d)=>{const ds=cyc.sessions.find(s=>s.week===S.wk&&s.day===d);return`<div class="pill ${S.dy===d?'on':''}" onclick="setDy(${d})">${sessDot(ds)}${l}</div>`;}).join('')}
   </div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+  ${S.berserker?'':`<div style="display:flex;justify-content:flex-end;margin-bottom:10px">
     <button class="btn btns ${dl?'btnon':''}" style="white-space:nowrap" onclick="toggleDeload('${cyc.id}',${S.wk})">
       <span style="font-size:13px">↓</span>${dl?'Deload ✓':'Deload?'}
     </button>
-  </div>
+  </div>`}
   <div class="swipe-nav">
     <div class="swp-btn l" onclick="${canP?'prvDay()':''}" style="${canP?'':'opacity:.2;pointer-events:none'}">‹${pL}</div>
     <div class="swp-cur">${siblings.length>1?`C${cyc.cycleNumber||1}·`:''}W${S.wk+1}·${dLbls[S.dy]||'?'}</div>
@@ -2481,6 +2481,18 @@ function rSess(sess,cid){
 
 let exCollapsed={};
 function toggleExCollapse(exId,e){e&&e.stopPropagation();exCollapsed[exId]=!exCollapsed[exId];rv();}
+function setBerserker(v){S.berserker=v;save();rv();}
+function setBerserkerLabel(cid,w,d,eid,label){
+  const ex=gEx(cid,w,d,eid);if(!ex)return;
+  ex.berserkerLabel=label;save();rv();
+}
+function berserkerPill(ex,cid,w,d){
+  const active=ex.berserkerLabel||(ex.focus==='Max Effort'?'Max':'Volume');
+  const opts=[['Max','#e06060'],['Volume','#c9a84c'],['Speed','#6dcc8a']];
+  return`<span class="fwrap-pill" style="display:inline-flex;border-radius:8px;overflow:hidden;border:1px solid var(--b2)">${opts.map(([lbl,col])=>
+    `<span onclick="event.stopPropagation();setBerserkerLabel('${cid}',${w},${d},'${ex.id}','${lbl}')" style="padding:2px 8px;font-family:var(--fn);font-size:10px;font-weight:800;letter-spacing:.03em;cursor:pointer;${active===lbl?`background:${col};color:#0c1828`:'background:var(--bg4);color:var(--t2)'}">${lbl}</span>`
+  ).join('')}</span>`;
+}
 function isSessionLocked(sess,cid){
   if(sess.done)return true;
   const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return false;
@@ -2637,7 +2649,7 @@ function rTRMEx(ex,sess,cid,locked){
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▸':'▾'}</button>
         </div>
       </div>
-      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ Total Rep</span>${ex.isWildcard?`<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">⚡ Wildcard</span>`:''}</div>
+      <div class="fwrap mt8">${sb(ex.skill)}${S.berserker?berserkerPill(ex,cid,sess.week,sess.day):fb(ex.focus)}${cb(ex.category)}<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">◎ Total Rep</span>${ex.isWildcard?`<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">⚡ Wildcard</span>`:''}</div>
     </div>
     <div class="exby" style="${isCollapsed?'max-height:0;overflow:hidden':''}">`;
   if(!isCollapsed){
@@ -2734,11 +2746,11 @@ function rEx(ex,sess,cid,locked){
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${exCollapsed[ex.id]?'Expand':'Collapse'}">${exCollapsed[ex.id]?'▸':'▾'}</button>
         </div>
       </div>
-      <div class="fwrap mt8">${sb(ex.skill)}${fb(ex.focus)}${cb(ex.category)}${metricBadge(exMetric)}${ex.isWildcard?`<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">⚡ Wildcard</span>`:''}${orm?`<span id="orm-${ex.id}" class="orm-bdg">≈1RM ${orm||''}${uw()}</span>`:''}</div>
+      <div class="fwrap mt8">${sb(ex.skill)}${S.berserker?berserkerPill(ex,cid,sess.week,sess.day):fb(ex.focus)}${cb(ex.category)}${metricBadge(exMetric)}${ex.isWildcard?`<span class="bdg" style="background:rgba(201,168,76,.12);border:1px solid var(--gdk);color:var(--gd);font-size:10px">⚡ Wildcard</span>`:''}${orm?`<span id="orm-${ex.id}" class="orm-bdg">≈1RM ${orm||''}${uw()}</span>`:''}</div>
     </div>
     <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
 `;
-  if(tgt){cacheTgt(ex.id,tgt);h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
+  if(tgt&&!S.berserker){cacheTgt(ex.id,tgt);h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
     <span class="tgt-icon" style="${tgt.isDeload?'color:var(--g)':''}">${tgt.isDeload?'↓':'↑'}</span>
     <div class="tgt-body">
       <div class="tgt-t">${tgt.isDeload?'Deload Target':'Suggested Target'}</div>
@@ -2825,7 +2837,7 @@ function rSSEx(ex,sess,cid,locked){
     </div>
     <div class="exby ${exCollapsed[ex.id]?'exby-collapsed':''}">
 `;
-  if(tgt){cacheTgt(ex.id,tgt);h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
+  if(tgt&&!S.berserker){cacheTgt(ex.id,tgt);h+=`<div class="tgt ${tgt.isDeload?'dl':''}">
     <span class="tgt-icon" style="${tgt.isDeload?'color:var(--g)':''}">${tgt.isDeload?'↓':'↑'}</span>
     <div class="tgt-body"><div class="tgt-t">${tgt.isDeload?'Deload Target':'Target (A)'}</div>
     <div class="tgt-v">${tgt.kg}${tgt.suffix!==undefined?tgt.suffix:uw()} × ${tgt.reps}r</div><div class="tgt-p">${tgt.note}</div>
@@ -3572,6 +3584,18 @@ function vSettings(c){
     <div class="lbl mb6">Default Rest Time</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
       ${rP.map(([s,l])=>`<button class="tba ${(S.defRest||120)===s?'on':''}" style="height:40px;min-width:46px" onclick="setDefRest(${s})">${l}</button>`).join('')}
+    </div>
+  </div>
+  <div class="card" style="border-color:${S.berserker?'#c04040':'var(--b)'}">
+    <div class="fbet mb8">
+      <div class="sect" style="margin-bottom:0">⚔ Berserker Mode</div>
+      <div class="tgg" style="width:auto">
+        <button class="tgo ${!S.berserker?'on':''}" onclick="setBerserker(false)">Off</button>
+        <button class="tgo ${S.berserker?'on':''}" style="${S.berserker?'background:#c04040;border-color:#c04040;color:#fff':''}" onclick="setBerserker(true)">On</button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--t2);font-family:var(--fn);line-height:1.6">
+      Removes suggested targets, the Apply button, and the Deload toggle. Replaces the ME/DE badge with a tappable <b style="color:var(--t)">Max / Volume / Speed</b> pill on every exercise card, so you set the intent yourself each session. Applies across all cycles while enabled.
     </div>
   </div>
   <div class="card">
