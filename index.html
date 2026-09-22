@@ -18,7 +18,7 @@
     function mkIcon(sz){
       var cv=document.createElement('canvas');cv.width=cv.height=sz;
       var ctx=cv.getContext('2d');
-      ctx.fillStyle='#ffffff';ctx.fillRect(0,0,sz,sz);
+      ctx.fillStyle='#0c1828';ctx.fillRect(0,0,sz,sz);
       ctx.textAlign='left';ctx.textBaseline='alphabetic';
       var FONT='"Roboto Condensed","Arial Narrow","Liberation Sans Narrow",sans-serif-condensed,"Arial Black",Arial,sans-serif';
       // Measure at a probe size, then scale so glyphs actually fill the canvas
@@ -37,8 +37,7 @@
       var a2=m2.actualBoundingBoxAscent||fs*0.72,d2=m2.actualBoundingBoxDescent||0;
       var x0=(sz-wAF)/2;
       var baseline=sz/2+(a2-d2)/2;
-      ctx.fillStyle='#0c1828';ctx.fillText('A',x0,baseline);
-      ctx.fillStyle='#b8952f';ctx.fillText('F',x0+wA,baseline);
+      ctx.fillStyle='#c9a84c';ctx.fillText('AF',x0,baseline);
       var d=cv.toDataURL('image/png'),b=atob(d.split(',')[1]);
       var u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);
       return URL.createObjectURL(new Blob([u],{type:'image/png'}));
@@ -47,7 +46,7 @@
     var m={name:'Apex Fortis',short_name:'Apex Fortis',description:'Conjugate Strength Training',
       start_url:location.origin+location.pathname,
       scope:location.origin+location.pathname.replace(/[^\/]*$/,''),
-      display:'standalone',background_color:'#ffffff',theme_color:'#0c1828',orientation:'portrait',
+      display:'standalone',background_color:'#0c1828',theme_color:'#0c1828',orientation:'portrait',
       icons:[
         {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
         {src:u512,sizes:'512x512',type:'image/png',purpose:'maskable'}
@@ -200,6 +199,10 @@ input[type=date]{color-scheme:dark}
 /* EXERCISE BLOCKS */
 .exb{background:var(--bg2);border:1px solid var(--b);border-radius:8px;margin-bottom:14px;overflow:hidden}
 .exb.has-fail{border-color:#c04040;box-shadow:0 0 0 1px rgba(192,64,64,.35)}
+.exb.locked{opacity:.7}
+.exb.locked *{pointer-events:none!important}
+.exb.locked .collapse-btn{pointer-events:auto!important;opacity:1}
+.lock-badge{display:inline-flex;align-items:center;gap:3px;font-family:var(--fn);font-size:10px;font-weight:800;letter-spacing:.05em;color:var(--t2);background:var(--bg4);border:1px solid var(--b2);padding:2px 7px;border-radius:8px}
 .exb.me{border-color:var(--gd)}
 .exbh{padding:12px;background:var(--bg3);border-bottom:1px solid var(--b)}
 .exb.me .exbh{background:var(--bg4);border-bottom-color:var(--gd)}
@@ -597,13 +600,14 @@ function startKeepAlive(){
 function stopKeepAlive(){try{if(_keepAlive){_keepAlive.o.stop();_keepAlive=null;}}catch(e){}}
 function startTimer(secs,lbl){
   if(TM.iv)clearInterval(TM.iv);
-  ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
+  ['_t20','_t10','_tvib','_tvend','_speechPoke'].forEach(k=>{if(TM[k])clearTimeout(TM[k])||clearInterval(TM[k]);});
   // Cancel pre-scheduled oscillators from any previous timer BEFORE overwriting TM
   (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
-  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,_t20:null,_t10:null,_tvib:null,_tvend:null,_oscillators:[]};
+  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,_t20:null,_t10:null,_tvib:null,_tvend:null,_speechPoke:null,_oscillators:[]};
   const tb=document.getElementById('tbar');
   if(tb){tb.classList.add('vis');const tl=document.getElementById('tl');if(tl)tl.textContent=lbl||'Rest Timer';}
-  // Pre-schedule end-of-timer alarm — track nodes for cancellation
+  // Pre-schedule end-of-timer alarm — fires 1s ahead of nominal 0 to compensate for
+  // perceived device audio-pipeline lag. Track nodes for cancellation.
   try{
     const ac=getAC();const now=ac.currentTime;
     // Compressor prevents harsh clipping while allowing gain well above 1.0
@@ -626,12 +630,14 @@ function startTimer(secs,lbl){
         TM._oscillators.push(o);
       });
     }
-    const et=now+secs;
+    const et=now+Math.max(0,secs-1);
     tone(880,et,0.3);tone(1046,et+0.35,0.3);tone(1318,et+0.7,0.35);tone(1568,et+1.05,0.75);
   }catch(e){}
-  // 20s verbal — fresh AudioContext + audible tone precedes speech (keeps Chrome
-  // from throttling this timer when the screen is off, same as the 10s handler)
-  if(secs>=20){
+  // 20s verbal — fires when 21s remain (1s ahead), fresh AudioContext + audible tone
+  // precedes speech (keeps Chrome from throttling this timer when the screen is off).
+  // speechSynthesis.resume() called defensively: Chrome for Android can auto-pause
+  // the speech queue when the page is hidden, independent of Web Audio state.
+  if(secs>=21){
     TM._t20=setTimeout(()=>{
       try{
         const ac3=new(window.AudioContext||window.webkitAudioContext)();
@@ -642,12 +648,17 @@ function startTimer(secs,lbl){
         g.gain.exponentialRampToValueAtTime(0.001,ac3.currentTime+0.2);
         o.start();o.stop(ac3.currentTime+0.22);
       }catch(e){}
-      try{const u=new SpeechSynthesisUtterance('twenty');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
+      try{
+        speechSynthesis.resume();
+        speechSynthesis.cancel();
+        const u=new SpeechSynthesisUtterance('twenty');u.volume=1;u.rate=1.0;
+        speechSynthesis.speak(u);
+      }catch(e){}
       if(navigator.vibrate)navigator.vibrate([80]);
-    },Math.max(0,(secs-20)*1000-400));
+    },Math.max(0,(secs-21)*1000-400));
   }
-  // 10s beep + verbal + vibration — fresh AudioContext in setTimeout
-  if(secs>=10){
+  // 10s beep + verbal + vibration — fires when 11s remain (1s ahead), fresh AudioContext
+  if(secs>=11){
     TM._t10=setTimeout(()=>{
       try{
         const ac2=new(window.AudioContext||window.webkitAudioContext)();
@@ -665,13 +676,21 @@ function startTimer(secs,lbl){
           o.start();o.stop(ac2.currentTime+0.3);
         });
       }catch(e){}
-      try{const u=new SpeechSynthesisUtterance('ten');u.volume=1;u.rate=1.0;speechSynthesis.speak(u);}catch(e){}
+      try{
+        speechSynthesis.resume();
+        speechSynthesis.cancel();
+        const u=new SpeechSynthesisUtterance('ten');u.volume=1;u.rate=1.0;
+        speechSynthesis.speak(u);
+      }catch(e){}
       if(navigator.vibrate)navigator.vibrate([120]);
-    },Math.max(0,(secs-10)*1000-300));
+    },Math.max(0,(secs-11)*1000-300));
   }
   TM._tvend=setTimeout(()=>{
     if(navigator.vibrate)navigator.vibrate([500,120,500,120,600,120,900]);
-  },secs*1000);
+  },Math.max(0,secs-1)*1000);
+  // Poke speechSynthesis.resume() periodically — Chrome Android can leave the speech
+  // queue paused when the screen turns off, silently dropping queued utterances.
+  TM._speechPoke=setInterval(()=>{try{speechSynthesis.resume();}catch(e){}},2500);
   acquireWakeLock();startKeepAlive();
   TM.iv=setInterval(tickTM,100);tickTM();
 }
@@ -686,6 +705,7 @@ function tickTM(){
     if(tf){tf.className='tbar-fill';tf.style.width=((1-(rem/(TM.dur*1000)))*100)+'%';}
   }else{
     clearInterval(TM.iv);TM.on=false;
+    if(TM._speechPoke)clearInterval(TM._speechPoke);
     releaseWakeLock();stopKeepAlive();
     td.textContent='GO!';td.className='tbar-num done';
     if(tf)tf.className='tbar-fill done';
@@ -696,6 +716,7 @@ function extT(s){if(TM.on||TM.end>Date.now()){TM.end+=s*1000;TM.dur+=s;}}
 function stopT(){
   if(TM.iv)clearInterval(TM.iv);
   ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
+  if(TM._speechPoke)clearInterval(TM._speechPoke);
   (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
   TM.on=false;TM._oscillators=[];
   releaseWakeLock();stopKeepAlive();
@@ -890,6 +911,19 @@ function toggleWODay(d){
   if(ic)ic.textContent=open?'▸':'▾';
 }
 function navToDay(d){S.dy=d;save();closeOverlay('woov');rv();}
+function addWildcardRuckDay(cid,week){
+  const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return;
+  const weekSess=cyc.sessions.filter(s=>s.week===week);
+  const nextDay=weekSess.length?Math.max(...weekSess.map(s=>s.day))+1:0;
+  cyc.sessions.push({week,day:nextDay,type:'ruck',done:false,notes:'',
+    isHomeGym:false,exercises:[],isWildcard:true,
+    ruckData:{weight:'',distance:'',duration:'',notes:'',equipment:''}});
+  save();
+  closeOverlay('woov');
+  S.wk=week;S.dy=nextDay;
+  rv();
+  notify('⚡ Wildcard ruck day added — logged here only, won\u2019t carry to future cycles');
+}
 function showWeekOverview(){
   const cyc=S.cycles.find(c=>c.id===S.cid);if(!cyc)return;
   const ws=cyc.sessions.filter(s=>s.week===S.wk).sort((a,b)=>a.day-b.day);
@@ -940,6 +974,7 @@ function showWeekOverview(){
           </div>
           <button class="tba xbtn" onclick="closeOverlay('woov')">✕</button>
         </div>${rows}
+        <button onclick="addWildcardRuckDay('${S.cid}',${S.wk})" style="width:100%;margin-top:10px;height:40px;background:rgba(201,168,76,.08);border:1px dashed var(--gdk);border-radius:6px;color:var(--gd);font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer">⚡ Add Wildcard Ruck Day</button>
       </div>
     </div>`);
 }
@@ -982,6 +1017,9 @@ const SAMPLES=[
   {name:'Shoulder DB Press',skill:'Push',focus:'Dynamic',category:'',metric:'reps'},
   {name:'Close Grip Bench',skill:'Push',focus:'Dynamic',category:'',metric:'reps'},
   {name:'Banded Floor Press Close Grip',skill:'Push',focus:'Dynamic',category:'',metric:'reps'},
+  {name:'Banded Floor Press Comp Grip',skill:'Push',focus:'Dynamic',category:'',metric:'reps'},
+  {name:'Incline Barbell Press',skill:'Push',focus:'Dynamic',category:'',metric:'reps'},
+  {name:'Nitro Chest Press',skill:'Push',focus:'Dynamic',category:'',metric:'reps'},
   {name:'Chain Fly Into Press',skill:'Push',focus:'Dynamic',category:'',metric:'reps'},
   // ── Functional ──────────────────────────────────────────────────────────────
   {name:'Farmers Walks',skill:'Functional',focus:'Max Effort',category:'',metric:'metres'},
@@ -989,6 +1027,8 @@ const SAMPLES=[
   {name:'Sandbag Pit Stops',skill:'Functional',focus:'Dynamic',category:'',metric:'metres'},
   {name:'Trap Bar Pit Stop',skill:'Functional',focus:'Max Effort',category:'',metric:'metres'},
   {name:'Trap Bar Walk',skill:'Functional',focus:'Dynamic',category:'',metric:'metres'},
+  {name:'Axel Pickup Zercher Walk',skill:'Functional',focus:'Max Effort',category:'',metric:'metres'},
+  {name:'Chain Yoke',skill:'Functional',focus:'Dynamic',category:'',metric:'metres'},
   {name:'Axel Zercher Walk',skill:'Functional',focus:'Max Effort',category:'',metric:'metres'},
   {name:'Zercher Axel Pit Stops',skill:'Functional',focus:'Max Effort',category:'',metric:'metres'},
   {name:'Sled Drag',skill:'Functional',focus:'Dynamic',category:'',metric:'metres'},
@@ -1004,8 +1044,10 @@ const SAMPLES=[
   {name:'Alt DB Curl',skill:'Accessories',focus:'Dynamic',category:'back_bi',metric:'reps'},
   {name:'Towel Pullups',skill:'Accessories',focus:'Dynamic',category:'back_bi',metric:'reps'},
   {name:'Seal Row',skill:'Accessories',focus:'Dynamic',category:'back_bi',metric:'reps'},
+  {name:'High Cable Bicep Curl Flat Bar Seated',skill:'Accessories',focus:'Dynamic',category:'back_bi',metric:'reps'},
   // ── Accessories — Chest & Triceps ───────────────────────────────────────────
   {name:'Tricep Cable Pushdown',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
+  {name:'DB Roll Back',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
   {name:'Tricep Cable Uni',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
   {name:'Prone Single DB French Press',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
   {name:'Standing French Press',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
@@ -1016,6 +1058,8 @@ const SAMPLES=[
   {name:'Standing DB Tri Extension',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
   {name:'T-Fly Into DB Extension',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
   {name:'One And Half Rep Vulcan Bent OH Extension',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
+  {name:'DB Floor Press',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
+  {name:'Tricep Ladder',skill:'Accessories',focus:'Dynamic',category:'chest_tri',metric:'reps'},
   // ── Accessories — Delts ─────────────────────────────────────────────────────
   {name:'Lateral Raise DB',skill:'Accessories',focus:'Dynamic',category:'delts',metric:'reps'},
   {name:'Front Raise EZ',skill:'Accessories',focus:'Dynamic',category:'delts',metric:'reps'},
@@ -1047,11 +1091,16 @@ const SAMPLES=[
   {name:'Towel Hangs',skill:'Accessories',focus:'Dynamic',category:'grip',metric:'seconds'},
   {name:'Fingertip Shrug Barbell',skill:'Accessories',focus:'Dynamic',category:'grip',metric:'reps'},
   {name:'Forearm Rev Curl',skill:'Accessories',focus:'Dynamic',category:'grip',metric:'reps'},
+  {name:'DOH Oly Knee High Rackpull 5sec Hold',skill:'Accessories',focus:'Max Effort',category:'grip',metric:'reps'},
+  {name:'KB Walk',skill:'Accessories',focus:'Dynamic',category:'grip',metric:'seconds'},
   // ── Accessories — Core ──────────────────────────────────────────────────────
   {name:'Cable Rope Crunch',skill:'Accessories',focus:'Dynamic',category:'core',metric:'reps'},
   {name:'AB Sling Knee Up',skill:'Accessories',focus:'Dynamic',category:'core',metric:'reps'},
   {name:'Hanging Leg Raise',skill:'Accessories',focus:'Dynamic',category:'core',metric:'reps'},
-  {name:'Situps',skill:'Accessories',focus:'Dynamic',category:'core',metric:'reps'}
+  {name:'Situps',skill:'Accessories',focus:'Dynamic',category:'core',metric:'reps'},
+  {name:'Banded Crunch',skill:'Accessories',focus:'Dynamic',category:'core',metric:'reps'},
+  {name:'Cable Crunch',skill:'Accessories',focus:'Dynamic',category:'core',metric:'reps'},
+  {name:'KB Teapots',skill:'Accessories',focus:'Dynamic',category:'core',metric:'reps'}
 ];
 function loadSamples(){
   let a=0;
@@ -1300,7 +1349,7 @@ function vLib(c){
   <div class="stitle">Exercise Library</div>
   ${!S.lib.length?`<div class="card" style="border-color:var(--gd);text-align:center">
     <div style="font-family:var(--fn);font-size:14px;color:var(--t2);margin-bottom:10px">Load sample exercises or add your own to get started</div>
-    <button class="btnp" style="width:100%" onclick="loadSamples();nav('lib')">↓ Load 95 Exercises into Library</button>
+    <button class="btnp" style="width:100%" onclick="loadSamples();nav('lib')">↓ Load 109 Exercises into Library</button>
   </div>`:''}
   <div class="card">
     <div class="lbl">Add Exercise</div>
@@ -1588,8 +1637,8 @@ function vCyc(c){
   </div>
   <div class="card">
     <div class="sect">Rotation Length</div>
-    <div class="tgg mb10">
-      ${[1,2,3,4].map(n=>`<button class="tgo ${(S.cw||4)===n?'on':''}" onclick="setCW(${n})">${n}W</button>`).join('')}
+    <div class="tgg mb10" style="flex-wrap:wrap;gap:6px">
+      ${Array.from({length:12},(_,i)=>i+1).map(n=>`<button class="tgo" style="flex:0 0 auto;min-width:44px;${(S.cw||4)===n?'background:var(--gdk);color:var(--g2);border-color:var(--g)':''}" onclick="setCW(${n})">${n}W</button>`).join('')}
     </div>
     <div style="font-size:12px;color:var(--t2);font-family:var(--fn);letter-spacing:.04em">${(td+(hr?1:0))*(S.cw||4)} total sessions · ${S.cw||4} week variation${(S.cw||4)>1?'s':''}</div>
     <div class="lbl mt12 mb4">Cycle Name (optional)</div>
@@ -1957,7 +2006,7 @@ function copyCycleSessions(prev){
     }
     return ex; // nothing better found — use prev's (likely empty) data as-is
   }
-  return prev.sessions.map(sess=>{
+  return prev.sessions.filter(sess=>!sess.isWildcard).map(sess=>{
     const srcExs=(sess.exercises||[]).filter(e=>!e.isWildcard);
     const exercises=srcExs.map(ex=>{
       const src=findSource(ex,sess.day); // may be an earlier cycle's version of this exercise
@@ -2133,11 +2182,12 @@ function doAddWildcard(cid,w,d,libId){
   // NOT added to manualAdditions — wildcard is session-only
   save();closeOverlay('swov');rv();notify('Wildcard: '+lib.name);
 }
-function getDayLabels(cyc){
-  return cyc.sessions.filter(s=>s.week===0).sort((a,b)=>a.day-b.day)
+function getDayLabels(cyc,week){
+  const w=week??0;
+  return cyc.sessions.filter(s=>s.week===w).sort((a,b)=>a.day-b.day)
     .map(s=>s.type==='ruck'?'Ruck':s.type==='full'?'Train':`Day ${s.day+1}`);
 }
-function maxDay(cyc){return(cyc.sessions.filter(s=>s.week===0).length)-1;}
+function maxDay(cyc,week){const w=week??0;return(cyc.sessions.filter(s=>s.week===w).length)-1;}
 function weekDot(cyc,w){
   const sess=cyc.sessions.filter(s=>s.week===w);const wt=sess.length;
   const wd=sess.filter(s=>s.done).length;
@@ -2323,7 +2373,7 @@ function vTrain(c){
   const siblings=siblingCycles(S.cid);
   const isLatest=!siblings.length||siblings[siblings.length-1].id===S.cid;
   const nextCycNum=(cyc.cycleNumber||1)+1;
-  const dLbls=getDayLabels(cyc),mx=maxDay(cyc);
+  const dLbls=getDayLabels(cyc,S.wk),mx=maxDay(cyc,S.wk);
   const canP=S.wk>0||S.dy>0,canN=S.wk<cyc.weeks-1||S.dy<mx;
   const pL=S.dy>0?dLbls[S.dy-1]:(S.wk>0?'W'+(S.wk)+' '+dLbls[mx]:'');
   const nL=S.dy<mx?dLbls[S.dy+1]:(S.wk<cyc.weeks-1?'W'+(S.wk+2)+' '+dLbls[0]:'');
@@ -2425,11 +2475,20 @@ function rSess(sess,cid){
   if(!sess.exercises.length)return'<div class="empty">—<h3>No exercises planned</h3></div>';
   const sorted=[...sess.exercises].sort((a,b)=>(a.sortOrder??exSkillOrder(a))-(b.sortOrder??exSkillOrder(b)));
   sorted.forEach(ex=>{if(!(ex.id in exCollapsed))exCollapsed[ex.id]=true;});
-  return sorted.map(ex=>ex.isTRM?rTRMEx(ex,sess,cid):ex.supersetWith?rSSEx(ex,sess,cid):rEx(ex,sess,cid)).join('');
+  const locked=isSessionLocked(sess,cid);
+  return sorted.map(ex=>ex.isTRM?rTRMEx(ex,sess,cid,locked):ex.supersetWith?rSSEx(ex,sess,cid,locked):rEx(ex,sess,cid,locked)).join('');
 }
 
 let exCollapsed={};
 function toggleExCollapse(exId,e){e&&e.stopPropagation();exCollapsed[exId]=!exCollapsed[exId];rv();}
+function isSessionLocked(sess,cid){
+  if(sess.done)return true;
+  const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return false;
+  const sibs=siblingCycles(cid);
+  if(!sibs.length)return false;
+  const latest=sibs[sibs.length-1];
+  return latest.id!==cid; // any cycle that isn't the newest in its plan is frozen history
+}
 let exDelPending={};
 let exDelTimers={};
 function clearExDel(exId){clearTimeout(exDelTimers[exId]);delete exDelPending[exId];delete exDelTimers[exId];rv();}
@@ -2557,7 +2616,7 @@ function toggleTRMWildcard(cid,w,d,eid){
   save();rv();
   notify(ex.isWildcard?'Marked as Wildcard — won\'t carry to future cycles':'No longer a Wildcard — will carry forward');
 }
-function rTRMEx(ex,sess,cid){
+function rTRMEx(ex,sess,cid,locked){
   const goal=ex.repGoal||100;
   const rest=ex.trmRest||60;
   const totalDone=ex.sets.reduce((t,s)=>t+(parseFloat(s.reps)||0),0);
@@ -2566,12 +2625,13 @@ function rTRMEx(ex,sess,cid){
   const goalReached=totalDone>=goal;
   const hasFail=ex.sets.some(s=>s.failed);
   const isCollapsed=exCollapsed[ex.id]!==false;
-  let h=`<div class="exb ${hasFail?'has-fail':''}" style="border-left:3px solid var(--gd)">
+  let h=`<div class="exb ${hasFail?'has-fail':''} ${locked?'locked':''}" style="border-left:3px solid var(--gd)">
     <div class="exbh">
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
         <div style="flex:1"><div class="exbn">${ex.name}</div><div class="exbr">${totalDone}/${goal} reps${goalReached?' · ✓ Done':''}</div></div>
         <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+          ${locked?`<span class="lock-badge">🔒 Locked</span>`:''}
           <button class="sw-btn ${ex.isWildcard?'on':''}" style="${ex.isWildcard?'color:var(--gd);border-color:var(--gd)':''}" onclick="toggleTRMWildcard('${cid}',${sess.week},${sess.day},'${ex.id}')" title="${ex.isWildcard?'Remove Wildcard status':'Mark as Wildcard'}">⚡</button>
           <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
           <button class="collapse-btn" onclick="toggleExCollapse('${ex.id}',event)" title="${isCollapsed?'Expand':'Collapse'}">${isCollapsed?'▸':'▾'}</button>
@@ -2623,6 +2683,7 @@ function rTRMEx(ex,sess,cid){
             oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value);refreshTRMCounter('${ex.id}',gEx('${cid}',${sess.week},${sess.day},'${ex.id}').sets,${goal})">
         </div>
         ${si>0?`<button class="fail-btn ${s.failed?'on':''}" onclick="toggleFail('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>`:''}
+        ${ex.sets.length>1?`<button class="btn btnd btnxs" title="Remove Set ${si+1}" onclick="rmSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">🗑</button>`:''}
       </div>`;
     });
     // Progress
@@ -2646,7 +2707,7 @@ function rTRMEx(ex,sess,cid){
   h+=`</div></div>`;
   return h;
 }
-function rEx(ex,sess,cid){
+function rEx(ex,sess,cid,locked){
   if(ex.supersetWith)return rSSEx(ex,sess,cid);
   const rl={main:'Main · ME Squat/Pull',main_push:'Main · ME Push',push:'Push',push2:'Push 2',grip:'Grip',func:'Functional',neck:'Neck',acc:'Accessory',acc2:'Accessory',legs_acc:'Legs',core_acc:'Core',manual:'Added'};
   const role=rl[ex.role]||(ex.role.startsWith('acc')?'Accessory':ex.role);
@@ -2660,12 +2721,13 @@ function rEx(ex,sess,cid){
   const isAcc=ex.skill==='Accessories';
   const isMainLift=ex.skill==='Push'||ex.skill==='Pull'||ex.skill==='Squat';
   const hasFail=ex.sets.some(s=>s.failed);
-  let h=`<div class="exb ${isMe?'me':''} ${hasFail?'has-fail':''}">
+  let h=`<div class="exb ${isMe?'me':''} ${hasFail?'has-fail':''} ${locked?'locked':''}">
     <div class="exbh">
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
         <div style="flex:1"><div class="exbn">${ex.name}</div><div class="exbr">${role}</div></div>
         <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+          ${locked?`<span class="lock-badge">🔒 Locked</span>`:''}
           ${isMainLift?`<button class="sw-btn" onclick="toggleFocus('${cid}',${sess.week},${sess.day},'${ex.id}')" title="ME/DE">${ex.focus==='Max Effort'?'ME':'DE'}</button>`:''}
           <button class="sw-btn" title="Switch weight label" onclick="setWMode('${cid}',${sess.week},${sess.day},'${ex.id}')">${ex.weightMode||'kg'}</button>
           <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap</button>
@@ -2738,13 +2800,13 @@ function rEx(ex,sess,cid){
   return h;
 }
 
-function rSSEx(ex,sess,cid){
+function rSSEx(ex,sess,cid,locked){
   const ss=ex.supersetWith;
   if(!ss.sets||ss.sets.length!==ex.sets.length)ss.sets=ex.sets.map((_,i)=>ss.sets?.[i]||mkSet());
   const aMetric=ex.metric||'reps';const bMetric=ss.metric||'reps';
   const tgt=getTgt(ex.libId,cid,sess.week,sess.day);
   const hasFail=ex.sets.some(s=>s.failed)||(ex.supersetWith?.sets||[]).some(s=>s.failed);
-  let h=`<div class="exb ${hasFail?'has-fail':''}">
+  let h=`<div class="exb ${hasFail?'has-fail':''} ${locked?'locked':''}">
     <div class="exbh">
       <div class="fbet">
         ${moveBtns(ex,sess,cid)}
@@ -2753,6 +2815,7 @@ function rSSEx(ex,sess,cid){
           <div class="exbr">Superset</div>
         </div>
         <div style="display:flex;gap:5px;align-items:flex-start;flex-wrap:wrap;justify-content:flex-end">
+          ${locked?`<span class="lock-badge">🔒 Locked</span>`:''}
           <button class="sw-btn btnd" style="color:#e06060" onclick="removeSupersetPair('${cid}',${sess.week},${sess.day},'${ex.id}')">Unlink</button>
           <button class="sw-btn" title="Switch weight label" onclick="setWMode('${cid}',${sess.week},${sess.day},'${ex.id}')">${ex.weightMode||'kg'}</button>
           <button class="sw-btn" onclick="openSwap('${cid}',${sess.week},${sess.day},'${ex.id}')">Swap A</button>
@@ -2920,14 +2983,14 @@ function setWk(w){S.wk=w;showCompare=false;save();rv();}
 function setDy(d){S.dy=d;showCompare=false;save();rv();}
 function nxtDay(){
   const cyc=S.cycles.find(c=>c.id===S.cid);if(!cyc)return;
-  const mx=maxDay(cyc);
+  const mx=maxDay(cyc,S.wk);
   if(S.dy<mx)S.dy++;else if(S.wk<cyc.weeks-1){S.wk++;S.dy=0;}
   showCompare=false;save();rv();
 }
 function prvDay(){
-  const cyc=S.cycles.find(c=>c.id===S.cid);
-  const mx=cyc?maxDay(cyc):3;
-  if(S.dy>0)S.dy--;else if(S.wk>0){S.wk--;S.dy=mx;}
+  const cyc=S.cycles.find(c=>c.id===S.cid);if(!cyc)return;
+  if(S.dy>0){S.dy--;}
+  else if(S.wk>0){S.wk--;S.dy=maxDay(cyc,S.wk);}
   showCompare=false;save();rv();
 }
 
@@ -3391,7 +3454,7 @@ function showWelcomeDemo(){
   document.getElementById('demo-return')?.remove();
   if(document.getElementById('demo-ov'))return;
   const steps=[
-    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 95 exercises covering Squat, Pull, Push, Functional, and all Accessory categories. You can add your own custom exercises at any time.',action:'Go to Library',fn:"nav('lib')"},
+    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 109 exercises covering Squat, Pull, Push, Functional, and all Accessory categories. You can add your own custom exercises at any time.',action:'Go to Library',fn:"nav('lib')"},
     {n:'2',title:'Select Your Exercises',body:'In the Library, tick each exercise you want in your programme. Try to pick 3–6 Squat, 3–6 Pull, 3–6 Push, a few Carries, and a spread of Accessories.',action:null},
     {n:'3',title:'Configure Your Plan',body:'Go to the <b>Plan tab</b>. Set <b>1–5 resistance days</b> per week, <b>1–4 weeks</b>, and whether to include <b>1 or 2 ruck sessions</b> per week. Apex Fortis builds the full session structure automatically.',action:'Go to Plan',fn:"nav('cyc')"},
     {n:'4',title:'Generate & Start Training',body:'Tap <b>Generate Cycle</b>. Then go to Train, navigate with the Week and Day pills, and log your sets. Each exercise shows a <b>Suggested Target</b> based on your previous performance — tap <b>Apply</b> to use it.',action:'Go to Train',fn:"nav('train')"},
@@ -3537,7 +3600,7 @@ function vSettings(c){
   <div class="card">
     <div class="sect">Starter Library</div>
     <div style="font-size:13px;color:var(--t2);margin-bottom:10px;line-height:1.5">20 exercises across all skill categories to get started quickly.</div>
-    <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Exercise Library (95 movements)</button>
+    <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Exercise Library (109 movements)</button>
   </div>
   <div class="card">
     <div class="sect">Data Management</div>
@@ -3657,27 +3720,24 @@ function setupPWA(){
     try{
       const cv=document.createElement('canvas');cv.width=cv.height=size;
       const ctx=cv.getContext('2d');
-      ctx.fillStyle='#ffffff';
+      ctx.fillStyle='#0c1828';
       ctx.fillRect(0,0,size,size);
       ctx.textAlign='left';ctx.textBaseline='alphabetic';
       const FONT='"Roboto Condensed","Arial Narrow","Liberation Sans Narrow",sans-serif-condensed,"Arial Black",Arial,sans-serif';
-      // Measure real glyph bounds at a probe size, then scale to actually fill
       const probe=100;
       ctx.font=`900 ${probe}px ${FONT}`;
       const mAF=ctx.measureText('AF');
       const pw=mAF.width;
       const ph=(mAF.actualBoundingBoxAscent||probe*0.72)+(mAF.actualBoundingBoxDescent||0);
-      // Width 97% or height 70% — whichever binds first
       const scale=Math.min((size*0.97)/pw,(size*0.70)/ph);
       const fs=probe*scale;
       ctx.font=`900 ${fs}px ${FONT}`;
-      const wA=ctx.measureText('A').width,wAF=ctx.measureText('AF').width;
+      const wAF=ctx.measureText('AF').width;
       const m2=ctx.measureText('AF');
       const a2=m2.actualBoundingBoxAscent||fs*0.72,d2=m2.actualBoundingBoxDescent||0;
       const x0=(size-wAF)/2;
       const baseline=size/2+(a2-d2)/2;
-      ctx.fillStyle='#0c1828';ctx.fillText('A',x0,baseline);
-      ctx.fillStyle='#b8952f';ctx.fillText('F',x0+wA,baseline);
+      ctx.fillStyle='#c9a84c';ctx.fillText('AF',x0,baseline);
       // Convert to blob URL synchronously: dataURL → binary → Blob → objectURL
       const d=cv.toDataURL('image/png');
       const b=atob(d.split(',')[1]);
@@ -3697,7 +3757,7 @@ function setupPWA(){
       description:'Conjugate Strength Training',
       start_url:startUrl,scope:scope,
       display:'standalone',
-      background_color:'#ffffff',theme_color:'#0c1828',
+      background_color:'#0c1828',theme_color:'#0c1828',
       orientation:'portrait',
       icons:[
         {src:u192,sizes:'192x192',type:'image/png',purpose:'maskable'},
@@ -3717,7 +3777,7 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v13';
+const CV='af-cache-v14';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
