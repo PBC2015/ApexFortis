@@ -371,7 +371,7 @@ input.carried-val{font-style:italic}
 // ─── STATE ────────────────────────────────────────────────────────────────────
 const SK='ss_v9';
 let TM={on:false,end:0,dur:0,lbl:'',iv:null};
-let SX=0,SY=0,editExId=null;
+let SX=0,SY=0,editExId=null,_swipeBlocked=false;
 let CO={me:false,push:false,func:false,back_bi:false,chest_tri:false,delts:false,legs:false,neck:false,grip:false,core:false};
 let showCompare=false;
 
@@ -386,6 +386,7 @@ function def(){return{
   tab:'lib',trainDays:3,hasRuck:true,hasRuck2:false,cw:4,
   lib:[],cycles:[],cid:null,wk:0,dy:0,
   prs:[],prFavs:[],sel:[],stEx:null,stTab:'over',onboarded:false,berserker:false,
+  _pName:'',stProgEx:null,stOrmEx:null,lastExport:null,
   name:'',bw:'',unit:'kg',defRest:60,libSearch:'',
   deloadWeeks:{},homeGymDays:[],ruckUnit:'mi'
 };}
@@ -891,7 +892,12 @@ function doSwap(cid,w,d,exId,nid){
   if(!ex||!nl)return;
   // Apply to current session
   ex.libId=nl.id;ex.name=nl.name;ex.skill=nl.skill;ex.focus=nl.focus;ex.category=nl.category||'';ex.metric=nl.metric||'reps';
-  // Regenerate all future sessions with offset for variety
+  // Berserker Mode: exercises change ONLY by manual swap — never touch other sessions.
+  if(S.berserker){
+    save();closeOverlay('swov');rv();notify('Swapped → '+nl.name);
+    return;
+  }
+  // Normal mode: regenerate all future sessions with offset for variety
   const cutIdx=cyc.sessions.findIndex(s=>s.week>w||(s.week===w&&s.day>d));
   if(cutIdx>-1){
     const kept=cyc.sessions.slice(0,cutIdx);
@@ -911,18 +917,49 @@ function toggleWODay(d){
   if(ic)ic.textContent=open?'▸':'▾';
 }
 function navToDay(d){S.dy=d;save();closeOverlay('woov');rv();}
-function addWildcardRuckDay(cid,week){
+function addDayPicker(cid,week){
+  document.querySelector('.app').insertAdjacentHTML('beforeend',
+    `<div class="swov" id="daypicker-ov" onclick="closeOverlay('daypicker-ov',event)">
+      <div class="swsh" onclick="event.stopPropagation()">
+        <div class="sw-hdl"></div>
+        <div class="fbet mb12">
+          <div><div class="lbl">Add Day</div><div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:2px">Week ${week+1}</div></div>
+          <button class="tba xbtn" onclick="closeOverlay('daypicker-ov')">✕</button>
+        </div>
+        <div class="lbl mb6">Session Type</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+          ${[['long','Long Session','Squat/Pull-style, 5 exercises'],
+             ['short','Short Session','Push-style, 7 exercises'],
+             ['full','Full Session','Combined single-day layout'],
+             ['ruck','Ruck','Distance · weight · duration']].map(([t,lbl,desc])=>
+            `<button onclick="addDayToWeek('${cid}',${week},'${t}',_addDayWildcard)" style="text-align:left;padding:12px;background:var(--bg3);border:1px solid var(--b);border-radius:7px;cursor:pointer">
+              <div style="font-family:var(--fn);font-size:14px;font-weight:700;color:var(--t)">${lbl}</div>
+              <div style="font-size:11px;color:var(--t2);margin-top:2px">${desc}</div>
+            </button>`).join('')}
+        </div>
+        <div class="lbl mb6">Carries to Future Cycles?</div>
+        <div class="tgg mb8">
+          <button class="tgo ${!_addDayWildcard?'on':''}" onclick="_addDayWildcard=false;addDayPicker('${cid}',${week});">■ Permanent</button>
+          <button class="tgo ${_addDayWildcard?'on':''}" onclick="_addDayWildcard=true;addDayPicker('${cid}',${week});">⚡ Wildcard (one-off)</button>
+        </div>
+        <div style="font-size:11px;color:var(--t2);font-family:var(--fn);line-height:1.5">${_addDayWildcard?'This day only exists in the current cycle — it won\u2019t appear when you generate the next one.':'This day becomes part of the plan from here on — it will carry forward into future cycles like any other day.'}</div>
+      </div>
+    </div>`);
+}
+let _addDayWildcard=true;
+function addDayToWeek(cid,week,type,isWildcard){
   const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return;
   const weekSess=cyc.sessions.filter(s=>s.week===week);
   const nextDay=weekSess.length?Math.max(...weekSess.map(s=>s.day))+1:0;
-  cyc.sessions.push({week,day:nextDay,type:'ruck',done:false,notes:'',
-    isHomeGym:false,exercises:[],isWildcard:true,
-    ruckData:{weight:'',distance:'',duration:'',notes:'',equipment:''}});
+  const sess={week,day:nextDay,type,done:false,notes:'',isHomeGym:false,exercises:[]};
+  if(isWildcard)sess.isWildcard=true;
+  if(type==='ruck')sess.ruckData={weight:'',distance:'',duration:'',notes:'',equipment:''};
+  cyc.sessions.push(sess);
   save();
-  closeOverlay('woov');
+  closeOverlay('daypicker-ov');closeOverlay('woov');
   S.wk=week;S.dy=nextDay;
   rv();
-  notify('⚡ Wildcard ruck day added — logged here only, won\u2019t carry to future cycles');
+  notify((isWildcard?'⚡ Wildcard':'✓ Permanent')+' day added — fill it in below');
 }
 function showWeekOverview(){
   const cyc=S.cycles.find(c=>c.id===S.cid);if(!cyc)return;
@@ -974,7 +1011,7 @@ function showWeekOverview(){
           </div>
           <button class="tba xbtn" onclick="closeOverlay('woov')">✕</button>
         </div>${rows}
-        <button onclick="addWildcardRuckDay('${S.cid}',${S.wk})" style="width:100%;margin-top:10px;height:40px;background:rgba(201,168,76,.08);border:1px dashed var(--gdk);border-radius:6px;color:var(--gd);font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer">⚡ Add Wildcard Ruck Day</button>
+        <button onclick="addDayPicker('${S.cid}',${S.wk})" style="width:100%;margin-top:10px;height:40px;background:rgba(201,168,76,.08);border:1px dashed var(--gdk);border-radius:6px;color:var(--gd);font-family:var(--fn);font-size:12px;font-weight:700;letter-spacing:.04em;cursor:pointer">+ Add Day</button>
       </div>
     </div>`);
 }
@@ -1075,7 +1112,6 @@ const SAMPLES=[
   {name:'Leg Extension',skill:'Accessories',focus:'Dynamic',category:'legs',metric:'reps'},
   // ── Accessories — Neck ──────────────────────────────────────────────────────
   {name:'KB Neck Sling',skill:'Accessories',focus:'Dynamic',category:'neck',metric:'reps'},
-  {name:'SSB Shrugs',skill:'Accessories',focus:'Dynamic',category:'neck',metric:'reps'},
   {name:'Prone Neck',skill:'Accessories',focus:'Dynamic',category:'neck',metric:'reps'},
   // ── Accessories — Grip ───────────────────────────────────────────────────────
   {name:'Axel Double Overhand',skill:'Accessories',focus:'Dynamic',category:'grip',metric:'reps'},
@@ -1138,6 +1174,9 @@ function genCycle(selIds,weeks,rotOff=0){
   function rot(arr,n){return arr.length?arr[((n%arr.length)+arr.length)%arr.length]:null;}
   const sessions=[];
   let sqi=rotOff,pui=rotOff,mpi=rotOff,mp2i=rotOff,gi=rotOff,fi=rotOff,ai=rotOff,nki=rotOff,lgi=rotOff,cori=rotOff;
+  // In Berserker Mode the accessory/functional pool never rotates week to week —
+  // every week resolves to the identical exercise, changeable only via manual Swap.
+  const _stp=S.berserker?0:1;
   const td=S.trainDays||3;const hr=S.hasRuck!==false;
   function mkLong(w,dayIdx,mainPool,isSquat){
     const d=[];
@@ -1149,12 +1188,12 @@ function genCycle(selIds,weeks,rotOff=0){
       if((!e||used.has(e.id))&&fallback){const fb=fallback.filter(x=>!used.has(x.id));e=fb.length?fb[idx%fb.length]:null;}
       if(!e||used.has(e.id))return;d.push({...e,role});used.add(e.id);
     }
-    const mainIdx=isSquat?sqi++:pui++;
+    const mainIdx=isSquat?(sqi+=_stp,sqi-_stp):(pui+=_stp,pui-_stp);
     add(mainD,mainIdx,'main');
-    add(fnD,fi++,'func');
-    add(lgD,lgi++,'legs_acc',acD);
-    add(acD.filter(e=>!used.has(e.id)),ai++,'acc',lgD);
-    add(gD,gi++,'grip');
+    add(fnD,(fi+=_stp,fi-_stp),'func');
+    add(lgD,(lgi+=_stp,lgi-_stp),'legs_acc',acD);
+    add(acD.filter(e=>!used.has(e.id)),(ai+=_stp,ai-_stp),'acc',lgD);
+    add(gD,(gi+=_stp,gi-_stp),'grip');
     d.sort((a,b)=>exSkillOrder(a)-exSkillOrder(b));
     return{week:w,day:dayIdx,type:'long',done:false,notes:'',isHomeGym:hgDays.includes(dayIdx),exercises:d.map(mkEx),ruckData:null};
   }
@@ -1168,13 +1207,13 @@ function genCycle(selIds,weeks,rotOff=0){
       if((!e||used.has(e.id))&&fallback){const fb=fallback.filter(x=>!used.has(x.id));e=fb.length?fb[idx%fb.length]:null;}
       if(!e||used.has(e.id))return;d.push({...e,role});used.add(e.id);
     }
-    add(mpD,mpi++,'main_push');                                       // 1. ME Push
-    add(mpD.filter(e=>!used.has(e.id)),mp2i++,'push2');               // 2. Push volume
-    add(chestTriD.filter(e=>!used.has(e.id)),ai++,'acc',[...deltsD,...acD]);   // 3. Chest & Tri (anterior)
-    add(backBiD.filter(e=>!used.has(e.id)),ai++,'acc2',[...deltsD,...acD]);    // 4. Back & Biceps (posterior)
-    add(corD.filter(e=>!used.has(e.id)),cori++,'core_acc',acD);       // 5. Core
-    add(nkD,nki++,'neck',acD);                                        // 6. Neck
-    add(gD,gi++,'grip');                                              // 7. Grip
+    add(mpD,(mpi+=_stp,mpi-_stp),'main_push');                                       // 1. ME Push
+    add(mpD.filter(e=>!used.has(e.id)),(mp2i+=_stp,mp2i-_stp),'push2');               // 2. Push volume
+    add(chestTriD.filter(e=>!used.has(e.id)),(ai+=_stp,ai-_stp),'acc',[...deltsD,...acD]);   // 3. Chest & Tri (anterior)
+    add(backBiD.filter(e=>!used.has(e.id)),(ai+=_stp,ai-_stp),'acc2',[...deltsD,...acD]);    // 4. Back & Biceps (posterior)
+    add(corD.filter(e=>!used.has(e.id)),(cori+=_stp,cori-_stp),'core_acc',acD);       // 5. Core
+    add(nkD,(nki+=_stp,nki-_stp),'neck',acD);                                        // 6. Neck
+    add(gD,(gi+=_stp,gi-_stp),'grip');                                              // 7. Grip
     d.sort((a,b)=>exSkillOrder(a)-exSkillOrder(b));
     return{week:w,day:dayIdx,type:'short',done:false,notes:'',isHomeGym:true,exercises:d.map(mkEx),ruckData:null};
   }
@@ -1183,9 +1222,9 @@ function genCycle(selIds,weeks,rotOff=0){
     if(td===1){
       const d=[];const used=new Set();
       function addF(arr,idx,role,fb){let e=rot(arr,idx);if((!e||used.has(e.id))&&fb){const f=fb.filter(x=>!used.has(x.id));e=f.length?f[idx%f.length]:null;}if(!e||used.has(e.id))return;d.push({...e,role});used.add(e.id);}
-      addF(meCombined,sqi++,'main');addF(func,fi++,'func');addF(hg(push),mpi++,'main_push');
-      addF(legs,lgi++,'legs_acc',acc);addF(hg(nk),nki++,'neck',hg(acc));
-      addF(acc.filter(e=>!used.has(e.id)),ai++,'acc');addF(grip,gi++,'grip');
+      addF(meCombined,(sqi+=_stp,sqi-_stp),'main');addF(func,(fi+=_stp,fi-_stp),'func');addF(hg(push),(mpi+=_stp,mpi-_stp),'main_push');
+      addF(legs,(lgi+=_stp,lgi-_stp),'legs_acc',acc);addF(hg(nk),(nki+=_stp,nki-_stp),'neck',hg(acc));
+      addF(acc.filter(e=>!used.has(e.id)),(ai+=_stp,ai-_stp),'acc');addF(grip,(gi+=_stp,gi-_stp),'grip');
       d.sort((a,b)=>(SKILL_ORDER[a.skill]??6)-(SKILL_ORDER[b.skill]??6));
       sessions.push({week:w,day:0,type:'full',done:false,notes:'',isHomeGym:false,exercises:d.map(mkEx),ruckData:null});
     } else if(td===2){
@@ -1296,9 +1335,12 @@ function render(){
   </div>`;
   const mc=document.getElementById('mc');
   if(mc){
-    mc.addEventListener('touchstart',e=>{SX=e.touches[0].clientX;SY=e.touches[0].clientY;},{passive:true});
+    mc.addEventListener('touchstart',e=>{
+      SX=e.touches[0].clientX;SY=e.touches[0].clientY;
+      _swipeBlocked=!!(e.target&&e.target.closest&&e.target.closest('.pnav,.scrollx'));
+    },{passive:true});
     mc.addEventListener('touchend',e=>{
-      if(S.tab!=='train')return;
+      if(S.tab!=='train'||_swipeBlocked)return;
       const dx=e.changedTouches[0].clientX-SX,dy=e.changedTouches[0].clientY-SY;
       if(Math.abs(dx)>72&&Math.abs(dx)>Math.abs(dy)*1.5){dx<0?nxtDay():prvDay();}
     },{passive:true});
@@ -1349,7 +1391,7 @@ function vLib(c){
   <div class="stitle">Exercise Library</div>
   ${!S.lib.length?`<div class="card" style="border-color:var(--gd);text-align:center">
     <div style="font-family:var(--fn);font-size:14px;color:var(--t2);margin-bottom:10px">Load sample exercises or add your own to get started</div>
-    <button class="btnp" style="width:100%" onclick="loadSamples();nav('lib')">↓ Load 109 Exercises into Library</button>
+    <button class="btnp" style="width:100%" onclick="loadSamples();nav('lib')">↓ Load 108 Exercises into Library</button>
   </div>`:''}
   <div class="card">
     <div class="lbl">Add Exercise</div>
@@ -1389,7 +1431,7 @@ function vLib(c){
   </div>
   ${S.lib.length?`<div style="display:flex;gap:6px;margin-bottom:10px">
     <input id="ls-s" class="ins" style="flex:1" placeholder="Search exercises…" value="${S.libSearch||''}" oninput="S.libSearch=this.value;save();rlLib()">
-    <button class="btn btns" onclick="S.libSearch='';save();rlLib()">✕</button>
+    <button class="btn btns" onclick="clearLibSearch()">✕</button>
   </div>`:''}
   <div id="ll"></div>`;
   rlLib();
@@ -1417,6 +1459,12 @@ function addEx(){
 }
 let LO={};
 function toggleLibCat(k){LO[k]=!LO[k];rlLib();}
+function clearLibSearch(){
+  S.libSearch='';save();
+  const i=document.getElementById('ls-s');
+  if(i){i.value='';i.focus();}
+  rlLib();
+}
 function rlLib(){
   const el=document.getElementById('ll');if(!el)return;
   const q=(S.libSearch||'').toLowerCase();
@@ -1983,6 +2031,102 @@ function applyManualAdditions(sessions,additions){
   });
 }
 let _nextCycPending=null;
+function sbdbCopyWeek(cid,srcWeek,destWeek){
+  const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return;
+  const srcSess=cyc.sessions.filter(s=>s.week===srcWeek);
+  srcSess.forEach(ss=>{
+    const dest=cyc.sessions.find(s=>s.week===destWeek&&s.day===ss.day);
+    if(!dest)return; // no matching day slot in target week — leave it alone
+    dest.type=ss.type;
+    dest.isHomeGym=ss.isHomeGym||false;
+    if(ss.type==='ruck'){
+      dest.exercises=[];
+      dest.ruckData={weight:'',distance:'',duration:'',notes:'',equipment:''};
+      return;
+    }
+    const srcExs=(ss.exercises||[]).filter(e=>!e.isWildcard);
+    const exercises=srcExs.map(ex=>{
+      const prevEquip=(ex.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
+      const prevSets=ex.sets||[];
+      const carryFields=['weight','reps','sets','rpe','rest','equipment','notes'];
+      const newSets=prevSets.length>0?prevSets.map(ps=>{
+        const carried={},carriedVals={};
+        carryFields.forEach(f=>{
+          const val=f==='equipment'?(ps[f]||prevEquip):(f==='rest'?(ps[f]||ex.restDefault||''):ps[f]);
+          if(val!=null&&val!==''){carried[f]=true;carriedVals[f]=String(val);}
+        });
+        return{...mkSet(),
+          weight:'',reps:'',sets:'',rpe:'',rest:'',equipment:'',notes:'',
+          failed:false,
+          carried:Object.keys(carried).length?carried:null,
+          carriedVals:Object.keys(carriedVals).length?carriedVals:null};
+      }):[{...mkSet(),equipment:prevEquip}];
+      const trmCarried={},trmCarriedVals={};
+      if(ex.isTRM){
+        if(ex.trmWeight){trmCarried.trmWeight=true;trmCarriedVals.trmWeight=String(ex.trmWeight);}
+        if(ex.trmEquipment){trmCarried.trmEquipment=true;trmCarriedVals.trmEquipment=String(ex.trmEquipment);}
+        if(ex.trmNotes){trmCarried.trmNotes=true;trmCarriedVals.trmNotes=String(ex.trmNotes);}
+      }
+      const nx={id:uid(),libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
+        role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
+        weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
+        restDefault:ex.restDefault||'',
+        isTRM:ex.isTRM||false,repGoal:ex.repGoal||100,trmRest:ex.trmRest||60,
+        trmWeight:'',trmEquipment:'',trmNotes:'',
+        trmCarried:Object.keys(trmCarried).length?trmCarried:null,
+        trmCarriedVals:Object.keys(trmCarriedVals).length?trmCarriedVals:null,
+        berserkerLabel:ex.berserkerLabel||null,
+        sets:newSets};
+      if(ex.supersetWith){
+        nx.supersetWith={id:uid(),libId:ex.supersetWith.libId,
+          name:ex.supersetWith.name,metric:ex.supersetWith.metric||'reps',
+          weightMode:ex.supersetWith.weightMode||'kg',
+          sets:newSets.map(()=>mkSet())};
+      }
+      return nx;
+    });
+    exercises.forEach((e,i)=>e.sortOrder=i);
+    dest.exercises=exercises;
+    dest.done=false;dest.missed=false;dest.notes='';
+  });
+}
+function sbdbCopyConfirm(){
+  const cyc=S.cycles.find(c=>c.id===S.cid);
+  if(!cyc){notify('No active cycle selected');return;}
+  if(cyc.weeks<8){notify('SBDB Copy needs an 8-week cycle active — this one has '+cyc.weeks);return;}
+  if(document.getElementById('sbdb-confirm'))return;
+  const el=document.createElement('div');
+  el.id='sbdb-confirm';
+  el.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
+  el.innerHTML=`<div style="background:#0f1e30;border:1px solid #1d3248;border-radius:10px;padding:20px;max-width:320px;width:100%">
+    <div style="font-family:var(--fn);font-size:17px;font-weight:800;color:#d4b86a;margin-bottom:8px">Run SBDB Copy?</div>
+    <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:10px">On <b style="color:var(--t)">${cyc.name||'this cycle'}</b>, this will overwrite:</div>
+    <div style="font-size:13px;color:var(--t);line-height:1.9;margin-bottom:14px;font-family:var(--fn)">
+      · Week 2 &amp; 3 ← copied from Week 1<br>
+      · Week 8 ← copied from Week 4<br>
+      · Week 6 &amp; 7 ← copied from Week 5
+    </div>
+    <div style="font-size:12px;color:#e0a060;background:rgba(160,100,40,.1);border:1px solid #5a4010;border-radius:6px;padding:8px;margin-bottom:14px;line-height:1.5">⚠ Any exercises or logged data currently in those weeks will be replaced. This can be undone with ↩ Undo immediately after.</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="sbdbCopy()" style="flex:1;height:42px;background:rgba(201,168,76,.1);border:1px solid var(--gdk);border-radius:6px;color:#c9a84c;font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer">Yes, Copy</button>
+      <button onclick="document.getElementById('sbdb-confirm').remove()" style="flex:1;height:42px;background:#0c1828;border:1px solid #253d57;border-radius:6px;color:var(--t2);font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+}
+function sbdbCopy(){
+  document.getElementById('sbdb-confirm')?.remove();
+  const cyc=S.cycles.find(c=>c.id===S.cid);
+  if(!cyc)return;
+  saveUndo('SBDB Copy');
+  sbdbCopyWeek(cyc.id,0,1); // Squat W1 → W2
+  sbdbCopyWeek(cyc.id,0,2); // Squat W1 → W3
+  sbdbCopyWeek(cyc.id,3,7); // Bench W4 → W8
+  sbdbCopyWeek(cyc.id,4,5); // Deadlift W5 → W6
+  sbdbCopyWeek(cyc.id,4,6); // Deadlift W5 → W7
+  save();rv();
+  notify('SBDB Copy complete — W2/3 ← W1, W8 ← W4, W6/7 ← W5');
+}
 function copyCycleSessions(prev){
   // Deep-copy a cycle's session structure — exercises, order, supersets, Total Rep Method config.
   // Wildcards are excluded. All logged data cleared; previous values become grey ghosts.
@@ -3235,11 +3379,22 @@ function stCycle(el,cyc){
 function stRuck(el,cyc,sibs){
   const rucks=sibs.flatMap(c=>c.sessions.filter(s=>s.type==='ruck').map(s=>({
     lbl:`C${c.cycleNumber||1}W${s.week+1}`,
+    isWild:!!s.isWildcard,day:s.day,
     w:s.week+1,cyc:c.cycleNumber||1,
     dist:parseFloat(s.ruckData?.distance)||0,
     weight:parseFloat(s.ruckData?.weight)||0,dur:s.ruckData?.duration||'',
     durMin:parseDuration(s.ruckData?.duration),notes:s.ruckData?.notes||''
   })));
+  // Disambiguate when a week has more than one ruck (e.g. a wildcard ruck added
+  // alongside the normal scheduled one) — without this, both bars show the same
+  // "C1W1" label and the wildcard entry visually collides with the regular one.
+  const seenLbl={};
+  rucks.forEach(r=>{
+    const base=r.lbl;
+    seenLbl[base]=(seenLbl[base]||0)+1;
+    if(seenLbl[base]>1)r.lbl=`${base} D${r.day+1}`;
+    if(r.isWild)r.lbl+=' ⚡';
+  });
   const hD=rucks.some(r=>r.dist>0);
   let chart='<div class="chart-empty">No ruck data logged yet</div>';
   if(hD){
@@ -3466,7 +3621,7 @@ function showWelcomeDemo(){
   document.getElementById('demo-return')?.remove();
   if(document.getElementById('demo-ov'))return;
   const steps=[
-    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 109 exercises covering Squat, Pull, Push, Functional, and all Accessory categories. You can add your own custom exercises at any time.',action:'Go to Library',fn:"nav('lib')"},
+    {n:'1',title:'Load the Exercise Library',body:'Go to the <b>Library tab</b> and tap <b>"Load Exercise Library"</b>. This adds 108 exercises covering Squat, Pull, Push, Functional, and all Accessory categories. You can add your own custom exercises at any time.',action:'Go to Library',fn:"nav('lib')"},
     {n:'2',title:'Select Your Exercises',body:'In the Library, tick each exercise you want in your programme. Try to pick 3–6 Squat, 3–6 Pull, 3–6 Push, a few Carries, and a spread of Accessories.',action:null},
     {n:'3',title:'Configure Your Plan',body:'Go to the <b>Plan tab</b>. Set <b>1–5 resistance days</b> per week, <b>1–4 weeks</b>, and whether to include <b>1 or 2 ruck sessions</b> per week. Apex Fortis builds the full session structure automatically.',action:'Go to Plan',fn:"nav('cyc')"},
     {n:'4',title:'Generate & Start Training',body:'Tap <b>Generate Cycle</b>. Then go to Train, navigate with the Week and Day pills, and log your sets. Each exercise shows a <b>Suggested Target</b> based on your previous performance — tap <b>Apply</b> to use it.',action:'Go to Train',fn:"nav('train')"},
@@ -3594,8 +3749,12 @@ function vSettings(c){
         <button class="tgo ${S.berserker?'on':''}" style="${S.berserker?'background:#c04040;border-color:#c04040;color:#fff':''}" onclick="setBerserker(true)">On</button>
       </div>
     </div>
-    <div style="font-size:12px;color:var(--t2);font-family:var(--fn);line-height:1.6">
+    <div style="font-size:12px;color:var(--t2);font-family:var(--fn);line-height:1.6;margin-bottom:12px">
       Removes suggested targets, the Apply button, and the Deload toggle. Replaces the ME/DE badge with a tappable <b style="color:var(--t)">Max / Volume / Speed</b> pill on every exercise card, so you set the intent yourself each session. Applies across all cycles while enabled.
+    </div>
+    <button class="btn btns" style="width:100%;color:var(--gd);border-color:var(--gdk)" onclick="sbdbCopyConfirm()">⚔ SBDB Copy</button>
+    <div style="font-size:11px;color:var(--t2);font-family:var(--fn);line-height:1.5;margin-top:8px">
+      For an active 8-week SBDB cycle (3wk Squat · 1wk Bench · 3wk Deadlift · 1wk Bench). Copies every exercise, exactly, into: <b style="color:var(--t)">W2 &amp; W3 ← W1</b>, <b style="color:var(--t)">W8 ← W4</b>, <b style="color:var(--t)">W6 &amp; W7 ← W5</b>. Overwrites whatever is currently in those weeks — use ↩ Undo if needed.
     </div>
   </div>
   <div class="card">
@@ -3624,7 +3783,7 @@ function vSettings(c){
   <div class="card">
     <div class="sect">Starter Library</div>
     <div style="font-size:13px;color:var(--t2);margin-bottom:10px;line-height:1.5">20 exercises across all skill categories to get started quickly.</div>
-    <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Exercise Library (109 movements)</button>
+    <button class="btnp" style="width:100%" onclick="loadSamples()">↓ Load Exercise Library (108 movements)</button>
   </div>
   <div class="card">
     <div class="sect">Data Management</div>
