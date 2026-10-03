@@ -2031,64 +2031,177 @@ function applyManualAdditions(sessions,additions){
   });
 }
 let _nextCycPending=null;
+function copySessionData(ss,dest){
+  // Overwrite dest (an existing session) with ss's structure — exercises, order,
+  // supersets, TRM config. All logged data clears into grey carry-forward ghosts
+  // sourced from ss, exactly like the standard cycle-to-cycle carry system.
+  dest.type=ss.type;
+  dest.isHomeGym=ss.isHomeGym||false;
+  if(ss.type==='ruck'){
+    dest.exercises=[];
+    dest.ruckData={weight:'',distance:'',duration:'',notes:'',equipment:''};
+    dest.done=false;dest.missed=false;dest.notes='';
+    return;
+  }
+  const srcExs=(ss.exercises||[]).filter(e=>!e.isWildcard);
+  const exercises=srcExs.map(ex=>{
+    const prevEquip=(ex.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
+    const prevSets=ex.sets||[];
+    const carryFields=['weight','reps','sets','rpe','rest','equipment','notes'];
+    const newSets=prevSets.length>0?prevSets.map(ps=>{
+      const carried={},carriedVals={};
+      carryFields.forEach(f=>{
+        const val=f==='equipment'?(ps[f]||prevEquip):(f==='rest'?(ps[f]||ex.restDefault||''):ps[f]);
+        if(val!=null&&val!==''){carried[f]=true;carriedVals[f]=String(val);}
+      });
+      return{...mkSet(),
+        weight:'',reps:'',sets:'',rpe:'',rest:'',equipment:'',notes:'',
+        failed:false,
+        carried:Object.keys(carried).length?carried:null,
+        carriedVals:Object.keys(carriedVals).length?carriedVals:null};
+    }):[{...mkSet(),equipment:prevEquip}];
+    const trmCarried={},trmCarriedVals={};
+    if(ex.isTRM){
+      if(ex.trmWeight){trmCarried.trmWeight=true;trmCarriedVals.trmWeight=String(ex.trmWeight);}
+      if(ex.trmEquipment){trmCarried.trmEquipment=true;trmCarriedVals.trmEquipment=String(ex.trmEquipment);}
+      if(ex.trmNotes){trmCarried.trmNotes=true;trmCarriedVals.trmNotes=String(ex.trmNotes);}
+    }
+    const nx={id:uid(),libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
+      role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
+      weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
+      restDefault:ex.restDefault||'',
+      isTRM:ex.isTRM||false,repGoal:ex.repGoal||100,trmRest:ex.trmRest||60,
+      trmWeight:'',trmEquipment:'',trmNotes:'',
+      trmCarried:Object.keys(trmCarried).length?trmCarried:null,
+      trmCarriedVals:Object.keys(trmCarriedVals).length?trmCarriedVals:null,
+      berserkerLabel:ex.berserkerLabel||null,
+      sets:newSets};
+    if(ex.supersetWith){
+      nx.supersetWith={id:uid(),libId:ex.supersetWith.libId,
+        name:ex.supersetWith.name,metric:ex.supersetWith.metric||'reps',
+        weightMode:ex.supersetWith.weightMode||'kg',
+        sets:newSets.map(()=>mkSet())};
+    }
+    return nx;
+  });
+  exercises.forEach((e,i)=>e.sortOrder=i);
+  dest.exercises=exercises;
+  dest.done=false;dest.missed=false;dest.notes='';
+}
 function sbdbCopyWeek(cid,srcWeek,destWeek){
   const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return;
   const srcSess=cyc.sessions.filter(s=>s.week===srcWeek);
   srcSess.forEach(ss=>{
     const dest=cyc.sessions.find(s=>s.week===destWeek&&s.day===ss.day);
     if(!dest)return; // no matching day slot in target week — leave it alone
-    dest.type=ss.type;
-    dest.isHomeGym=ss.isHomeGym||false;
-    if(ss.type==='ruck'){
-      dest.exercises=[];
-      dest.ruckData={weight:'',distance:'',duration:'',notes:'',equipment:''};
-      return;
-    }
-    const srcExs=(ss.exercises||[]).filter(e=>!e.isWildcard);
-    const exercises=srcExs.map(ex=>{
-      const prevEquip=(ex.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
-      const prevSets=ex.sets||[];
-      const carryFields=['weight','reps','sets','rpe','rest','equipment','notes'];
-      const newSets=prevSets.length>0?prevSets.map(ps=>{
-        const carried={},carriedVals={};
-        carryFields.forEach(f=>{
-          const val=f==='equipment'?(ps[f]||prevEquip):(f==='rest'?(ps[f]||ex.restDefault||''):ps[f]);
-          if(val!=null&&val!==''){carried[f]=true;carriedVals[f]=String(val);}
-        });
-        return{...mkSet(),
-          weight:'',reps:'',sets:'',rpe:'',rest:'',equipment:'',notes:'',
-          failed:false,
-          carried:Object.keys(carried).length?carried:null,
-          carriedVals:Object.keys(carriedVals).length?carriedVals:null};
-      }):[{...mkSet(),equipment:prevEquip}];
-      const trmCarried={},trmCarriedVals={};
-      if(ex.isTRM){
-        if(ex.trmWeight){trmCarried.trmWeight=true;trmCarriedVals.trmWeight=String(ex.trmWeight);}
-        if(ex.trmEquipment){trmCarried.trmEquipment=true;trmCarriedVals.trmEquipment=String(ex.trmEquipment);}
-        if(ex.trmNotes){trmCarried.trmNotes=true;trmCarriedVals.trmNotes=String(ex.trmNotes);}
-      }
-      const nx={id:uid(),libId:ex.libId,name:ex.name,skill:ex.skill,focus:ex.focus,
-        role:ex.role||'',category:ex.category||'',metric:ex.metric||'reps',
-        weightMode:ex.weightMode||'kg',sortOrder:ex.sortOrder??0,
-        restDefault:ex.restDefault||'',
-        isTRM:ex.isTRM||false,repGoal:ex.repGoal||100,trmRest:ex.trmRest||60,
-        trmWeight:'',trmEquipment:'',trmNotes:'',
-        trmCarried:Object.keys(trmCarried).length?trmCarried:null,
-        trmCarriedVals:Object.keys(trmCarriedVals).length?trmCarriedVals:null,
-        berserkerLabel:ex.berserkerLabel||null,
-        sets:newSets};
-      if(ex.supersetWith){
-        nx.supersetWith={id:uid(),libId:ex.supersetWith.libId,
-          name:ex.supersetWith.name,metric:ex.supersetWith.metric||'reps',
-          weightMode:ex.supersetWith.weightMode||'kg',
-          sets:newSets.map(()=>mkSet())};
-      }
-      return nx;
-    });
-    exercises.forEach((e,i)=>e.sortOrder=i);
-    dest.exercises=exercises;
-    dest.done=false;dest.missed=false;dest.notes='';
+    copySessionData(ss,dest);
   });
+}
+// ─── COPY SESSION (general-purpose, any source → any targets, same cycle) ─────
+let _csSrc=null,_csTargets=new Set(),_csStep=1;
+const _csTypeLbl={long:'Long Session',short:'Short Session',full:'Full Session',ruck:'Ruck Session'};
+function copySessionPicker(){
+  const cyc=S.cycles.find(c=>c.id===S.cid);
+  if(!cyc){notify('No active cycle selected');return;}
+  if(document.getElementById('cs-ov'))return;
+  _csSrc=null;_csTargets=new Set();_csStep=1;
+  const el=document.createElement('div');
+  el.id='cs-ov';
+  el.style.cssText='position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:16px';
+  document.body.appendChild(el);
+  csRender();
+}
+function csClose(){document.getElementById('cs-ov')?.remove();_csSrc=null;_csTargets=new Set();}
+function csSessLbl(s){
+  if(s.type==='ruck')return'Ruck';
+  return _csTypeLbl[s.type]||s.type;
+}
+function csRender(){
+  const el=document.getElementById('cs-ov');if(!el)return;
+  const cyc=S.cycles.find(c=>c.id===S.cid);if(!cyc){csClose();return;}
+  const sessions=[...cyc.sessions].sort((a,b)=>a.week-b.week||a.day-b.day);
+  let body='';
+  if(_csStep===1){
+    body=`<div class="lbl mb8">Step 1 — Pick the Session to Copy</div>
+      <div style="max-height:50vh;overflow-y:auto">
+        ${sessions.map(s=>`<div class="sw-row" onclick="csPickSource(${s.week},${s.day})">
+          <div class="sw-name">W${s.week+1} · Day ${s.day+1} — ${csSessLbl(s)}</div>
+          <div style="font-size:11px;color:var(--t2)">${s.type==='ruck'?'Ruck data':(s.exercises.length+' exercise'+(s.exercises.length!==1?'s':''))}</div>
+        </div>`).join('')}
+      </div>
+      <button class="btn btns" style="width:100%;margin-top:10px" onclick="csClose()">Cancel</button>`;
+  }else if(_csStep===2){
+    const src=sessions.find(s=>s.week===_csSrc.week&&s.day===_csSrc.day);
+    const others=sessions.filter(s=>!(s.week===_csSrc.week&&s.day===_csSrc.day));
+    body=`<div class="lbl mb4">Step 2 — Pick Sessions to Paste Into</div>
+      <div style="font-size:12px;color:var(--gd);font-family:var(--fn);margin-bottom:10px">Copying from: W${_csSrc.week+1} · Day ${_csSrc.day+1} — ${csSessLbl(src)}</div>
+      <button class="btn btns" style="width:100%;margin-bottom:8px;color:var(--gd);border-color:var(--gdk)" onclick="csSelectSameDay()">⊕ Select every Day ${_csSrc.day+1} (all weeks)</button>
+      <div style="max-height:42vh;overflow-y:auto">
+        ${others.map(s=>{
+          const key=s.week+'-'+s.day;
+          const checked=_csTargets.has(key);
+          return`<div class="sw-row" style="display:flex;align-items:center;gap:10px;${checked?'border-color:var(--g)':''}" onclick="csToggleTarget(${s.week},${s.day})">
+            <div style="width:20px;height:20px;border-radius:5px;border:1.5px solid ${checked?'var(--g)':'var(--b2)'};background:${checked?'var(--g)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#0c1828;font-weight:800;font-size:13px">${checked?'✓':''}</div>
+            <div style="flex:1">
+              <div class="sw-name">W${s.week+1} · Day ${s.day+1} — ${csSessLbl(s)}</div>
+              <div style="font-size:11px;color:var(--t2)">${s.type==='ruck'?'Ruck data':(s.exercises.length+' exercise'+(s.exercises.length!==1?'s':''))}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn btns" style="flex:1" onclick="_csStep=1;csRender()">← Back</button>
+        <button class="btn btns" style="flex:2;${_csTargets.size?'color:var(--g2);border-color:var(--g)':''}" ${_csTargets.size?'':'disabled'} onclick="_csStep=3;csRender()">Continue (${_csTargets.size} selected) →</button>
+      </div>`;
+  }else if(_csStep===3){
+    const src=sessions.find(s=>s.week===_csSrc.week&&s.day===_csSrc.day);
+    const targetList=[..._csTargets].map(k=>{const[w,d]=k.split('-').map(Number);return sessions.find(s=>s.week===w&&s.day===d);}).filter(Boolean).sort((a,b)=>a.week-b.week||a.day-b.day);
+    body=`<div class="lbl mb8">Step 3 — Confirm</div>
+      <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:10px">Copy <b style="color:var(--t)">W${_csSrc.week+1} Day ${_csSrc.day+1} (${csSessLbl(src)})</b> into:</div>
+      <div style="max-height:30vh;overflow-y:auto;font-size:13px;color:var(--t);line-height:1.9;font-family:var(--fn);margin-bottom:14px">
+        ${targetList.map(s=>`· W${s.week+1} Day ${s.day+1}`).join('<br>')}
+      </div>
+      <div style="font-size:12px;color:#e0a060;background:rgba(160,100,40,.1);border:1px solid #5a4010;border-radius:6px;padding:8px;margin-bottom:14px;line-height:1.5">⚠ Any exercises or logged data currently in ${targetList.length>1?'these sessions':'this session'} will be replaced. The copied data appears as grey ghost text, ready to log over. This can be undone with ↩ Undo immediately after.</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="csExecute()" style="flex:1;height:42px;background:rgba(201,168,76,.1);border:1px solid var(--gdk);border-radius:6px;color:#c9a84c;font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer">Yes, Copy</button>
+        <button onclick="csClose()" style="flex:1;height:42px;background:#0c1828;border:1px solid #253d57;border-radius:6px;color:var(--t2);font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+      </div>`;
+  }
+  el.innerHTML=`<div class="swsh" style="max-width:360px" onclick="event.stopPropagation()">
+    <div class="sw-hdl"></div>
+    <div class="fbet mb8">
+      <div class="lbl">Copy Session</div>
+      <button class="tba xbtn" onclick="csClose()">✕</button>
+    </div>
+    ${body}
+  </div>`;
+}
+function csPickSource(week,day){_csSrc={week,day};_csStep=2;csRender();}
+function csToggleTarget(week,day){
+  const key=week+'-'+day;
+  if(_csTargets.has(key))_csTargets.delete(key);else _csTargets.add(key);
+  csRender();
+}
+function csSelectSameDay(){
+  const cyc=S.cycles.find(c=>c.id===S.cid);if(!cyc)return;
+  cyc.sessions.forEach(s=>{
+    if(s.day===_csSrc.day&&!(s.week===_csSrc.week&&s.day===_csSrc.day))_csTargets.add(s.week+'-'+s.day);
+  });
+  csRender();
+}
+function csExecute(){
+  const cyc=S.cycles.find(c=>c.id===S.cid);if(!cyc)return;
+  const src=cyc.sessions.find(s=>s.week===_csSrc.week&&s.day===_csSrc.day);if(!src)return;
+  saveUndo('Copy Session');
+  _csTargets.forEach(key=>{
+    const[w,d]=key.split('-').map(Number);
+    const dest=cyc.sessions.find(s=>s.week===w&&s.day===d);
+    if(dest)copySessionData(src,dest);
+  });
+  const n=_csTargets.size;
+  csClose();
+  save();rv();
+  notify('Copied into '+n+' session'+(n!==1?'s':''));
 }
 function sbdbCopyConfirm(){
   const cyc=S.cycles.find(c=>c.id===S.cid);
@@ -3756,6 +3869,13 @@ function vSettings(c){
     <div style="font-size:11px;color:var(--t2);font-family:var(--fn);line-height:1.5;margin-top:8px">
       For an active 8-week SBDB cycle (3wk Squat · 1wk Bench · 3wk Deadlift · 1wk Bench). Copies every exercise, exactly, into: <b style="color:var(--t)">W2 &amp; W3 ← W1</b>, <b style="color:var(--t)">W8 ← W4</b>, <b style="color:var(--t)">W6 &amp; W7 ← W5</b>. Overwrites whatever is currently in those weeks — use ↩ Undo if needed.
     </div>
+  </div>
+  <div class="card">
+    <div class="sect">📋 Copy Session</div>
+    <div style="font-size:12px;color:var(--t2);font-family:var(--fn);line-height:1.6;margin-bottom:12px">
+      Pick any session in the active cycle and copy it into one or more other sessions. All exercises, order, and supersets carry across exactly — logged data clears into grey ghost text, ready to fill in during training.
+    </div>
+    <button class="btn btns" style="width:100%;color:var(--gd);border-color:var(--gdk)" onclick="copySessionPicker()">📋 Copy a Session</button>
   </div>
   <div class="card">
     <button class="btn btns mb8" style="width:100%" onclick="showOnboarding()">⊛ Show Introduction</button>
