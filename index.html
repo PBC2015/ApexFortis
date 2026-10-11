@@ -387,7 +387,7 @@ function def(){return{
   lib:[],cycles:[],cid:null,wk:0,dy:0,
   prs:[],prFavs:[],sel:[],stEx:null,stTab:'over',onboarded:false,berserker:false,
   _pName:'',stProgEx:null,stOrmEx:null,lastExport:null,
-  name:'',bw:'',unit:'kg',defRest:60,libSearch:'',
+  name:'',bw:'',bwLog:[],unit:'kg',defRest:60,libSearch:'',
   deloadWeeks:{},homeGymDays:[],ruckUnit:'mi'
 };}
 let S=load();
@@ -599,14 +599,7 @@ function startKeepAlive(){
   }catch(e){}
 }
 function stopKeepAlive(){try{if(_keepAlive){_keepAlive.o.stop();_keepAlive=null;}}catch(e){}}
-function startTimer(secs,lbl){
-  if(TM.iv)clearInterval(TM.iv);
-  ['_t20','_t10','_tvib','_tvend','_speechPoke'].forEach(k=>{if(TM[k])clearTimeout(TM[k])||clearInterval(TM[k]);});
-  // Cancel pre-scheduled oscillators from any previous timer BEFORE overwriting TM
-  (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
-  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,_t20:null,_t10:null,_tvib:null,_tvend:null,_speechPoke:null,_oscillators:[]};
-  const tb=document.getElementById('tbar');
-  if(tb){tb.classList.add('vis');const tl=document.getElementById('tl');if(tl)tl.textContent=lbl||'Rest Timer';}
+function scheduleTimerAlerts(secs){
   // Pre-schedule end-of-timer alarm — fires 1s ahead of nominal 0 to compensate for
   // perceived device audio-pipeline lag. Track nodes for cancellation.
   try{
@@ -692,6 +685,16 @@ function startTimer(secs,lbl){
   // Poke speechSynthesis.resume() periodically — Chrome Android can leave the speech
   // queue paused when the screen turns off, silently dropping queued utterances.
   TM._speechPoke=setInterval(()=>{try{speechSynthesis.resume();}catch(e){}},2500);
+}
+function startTimer(secs,lbl){
+  if(TM.iv)clearInterval(TM.iv);
+  ['_t20','_t10','_tvib','_tvend','_speechPoke'].forEach(k=>{if(TM[k])clearTimeout(TM[k])||clearInterval(TM[k]);});
+  // Cancel pre-scheduled oscillators from any previous timer BEFORE overwriting TM
+  (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
+  TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,_t20:null,_t10:null,_tvib:null,_tvend:null,_speechPoke:null,_oscillators:[]};
+  const tb=document.getElementById('tbar');
+  if(tb){tb.classList.add('vis');const tl=document.getElementById('tl');if(tl)tl.textContent=lbl||'Rest Timer';}
+  scheduleTimerAlerts(secs);
   acquireWakeLock();startKeepAlive();
   TM.iv=setInterval(tickTM,100);tickTM();
 }
@@ -713,7 +716,19 @@ function tickTM(){
     setTimeout(()=>{const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');},4500);
   }
 }
-function extT(s){if(TM.on||TM.end>Date.now()){TM.end+=s*1000;TM.dur+=s;}}
+function extT(s){
+  if(!(TM.on||TM.end>Date.now()))return;
+  TM.end+=s*1000;TM.dur+=s;
+  // The original alarm schedule was built against the OLD end time — cancel it and
+  // reschedule everything against the new remaining time, or the 10s/20s/end alerts
+  // keep firing at their original (now stale) points regardless of the extension.
+  ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
+  if(TM._speechPoke)clearInterval(TM._speechPoke);
+  (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
+  TM._oscillators=[];
+  const remainingSecs=Math.max(0,Math.round((TM.end-Date.now())/1000));
+  scheduleTimerAlerts(remainingSecs);
+}
 function stopT(){
   if(TM.iv)clearInterval(TM.iv);
   ['_t20','_t10','_tvib','_tvend'].forEach(k=>{if(TM[k])clearTimeout(TM[k]);});
@@ -1879,7 +1894,8 @@ function deleteCycle(id){
   if(S.cid===id)S.cid=S.cycles[S.cycles.length-1]?.id||null;
   save();rv();notify('Deleted: '+name);
 }
-function bldCyc(){
+function bldCyc(){promptBodyweight(()=>_bldCycDo());}
+function _bldCycDo(){
   const sel=S.sel||S.lib.map(e=>e.id);
   if(!sel.length){notify('Select exercises first');return;}
   const prev=S.cycles.find(c=>c.id===S.cid);
@@ -1907,7 +1923,8 @@ function bldCyc(){
   S.cycles.push(cyc);S.cid=id;S.wk=0;S.dy=0;S._pName='';
   save();notify('Cycle generated!');render();
 }
-function bldNewPlan(){
+function bldNewPlan(){promptBodyweight(()=>_bldNewPlanDo());}
+function _bldNewPlanDo(){
   // Explicitly start a brand-new plan with a fresh exercise rotation
   const sel=S.sel||S.lib.map(e=>e.id);
   if(!sel.length){notify('Select exercises first');return;}
@@ -2087,6 +2104,44 @@ function copySessionData(ss,dest){
   exercises.forEach((e,i)=>e.sortOrder=i);
   dest.exercises=exercises;
   dest.done=false;dest.missed=false;dest.notes='';
+}
+// ─── BODYWEIGHT ─────────────────────────────────────────────────────────────
+function lastKnownBW(){
+  if(S.bwLog&&S.bwLog.length)return S.bwLog[S.bwLog.length-1].weight;
+  return S.bw||'';
+}
+function logBodyweight(w){
+  if(!w)return;
+  if(!S.bwLog)S.bwLog=[];
+  S.bwLog.push({date:new Date().toLocaleDateString('en-GB'),weight:String(w)});
+  S.bw=String(w);
+  save();
+}
+function promptBodyweight(onContinue){
+  if(document.getElementById('bw-prompt')){onContinue();return;}
+  const last=lastKnownBW();
+  const el=document.createElement('div');
+  el.id='bw-prompt';
+  el.style.cssText='position:fixed;inset:0;z-index:9996;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px';
+  el.innerHTML=`<div style="background:#0f1e30;border:1px solid #1d3248;border-radius:10px;padding:20px;max-width:300px;width:100%">
+    <div style="font-family:var(--fn);font-size:17px;font-weight:800;color:#d4b86a;margin-bottom:8px">Bodyweight</div>
+    <div style="font-size:13px;color:var(--t2);line-height:1.6;margin-bottom:12px">Logged for this cycle and tracked in Stats. Leave as-is to reuse your last known weight.</div>
+    <input id="bw-prompt-input" type="number" inputmode="decimal" class="ins mb14" style="font-size:18px;text-align:center" value="${last}" placeholder="${uw()}">
+    <button id="bw-prompt-go" style="width:100%;height:44px;background:rgba(201,168,76,.1);border:1px solid var(--gdk);border-radius:6px;color:#c9a84c;font-family:var(--fn);font-size:14px;font-weight:800;cursor:pointer;margin-top:4px">Continue</button>
+  </div>`;
+  document.body.appendChild(el);
+  const inp=document.getElementById('bw-prompt-input');
+  if(inp&&inp.focus)inp.focus();
+  const go=document.getElementById('bw-prompt-go');
+  if(go)go.onclick=()=>{
+    const v=document.getElementById('bw-prompt-input')?.value||'';
+    document.getElementById('bw-prompt')?.remove();
+    if(v)logBodyweight(v);
+    onContinue();
+  };
+}
+function logBodyweightStandalone(){
+  promptBodyweight(()=>rv());
 }
 function sbdbCopyWeek(cid,srcWeek,destWeek){
   const cyc=S.cycles.find(c=>c.id===cid);if(!cyc)return;
@@ -2312,7 +2367,8 @@ function copyCycleSessions(prev){
       exercises};
   });
 }
-function startNextCycle(cid){
+function startNextCycle(cid){promptBodyweight(()=>_startNextCycleDo(cid));}
+function _startNextCycleDo(cid){
   const prev=S.cycles.find(c=>c.id===cid);if(!prev)return;
   const cn=(prev.cycleNumber||1)+1;
   const id=uid();
@@ -2724,7 +2780,7 @@ function logSetAsPR(name,cid,w,d,eid,si){
   const kg=parseFloat(s.weight),reps=parseFloat(s.reps);
   if(!kg||!reps){notify('Fill in weight and '+metricLbl(ex.metric||'reps')+' first');return;}
   const id=uid();
-  S.prs.push({id,exercise:name,kg,reps,date:new Date().toLocaleDateString('en-GB'),notes:s.notes||'',metric:ex.metric||'reps'});
+  S.prs.push({id,exercise:name,kg,reps,date:new Date().toLocaleDateString('en-GB'),notes:s.notes||'',metric:ex.metric||'reps',bodyweight:lastKnownBW()||''});
   s.prId=id;
   save();rv();notify('★ PR logged — '+name+' '+kg+uw()+' × '+reps+(ex.metric==='metres'?'m':ex.metric==='seconds'?'s':'r'));
 }
@@ -3268,7 +3324,7 @@ function vStats(c){
   const cyc=S.cycles.find(x=>x.id===S.cid);
   if(!cyc){c.innerHTML=`<div class="empty">▦<h3>No Active Cycle</h3><p>Generate a cycle to see stats</p></div>`;return;}
   if(!S.stTab||S.stTab==='rpe')S.stTab='over';
-  const tabs=[['over','Overview'],['cycle','Cycle'],['prs','PRs'],['ruck','Ruck'],['orm','Est 1RM'],['prog','Progress'],['vol','Volume']];
+  const tabs=[['over','Overview'],['cycle','Cycle'],['prs','PRs'],['ruck','Ruck'],['orm','Est 1RM'],['bw','Bodyweight'],['prog','Progress'],['vol','Volume']];
   c.innerHTML=`<div class="stitle">Stats</div>
   <div class="stabs">${tabs.map(([k,l])=>`<div class="stab ${S.stTab===k?'on':''}" onclick="setStT('${k}')">${l}</div>`).join('')}</div>
   <div id="stcont"></div>`;
@@ -3284,6 +3340,7 @@ function stRender(cyc){
   else if(S.stTab==='prog')stProgress(el);
   else if(S.stTab==='ruck')stRuck(el,cyc,sibs);
   else if(S.stTab==='orm')stORM(el);
+  else if(S.stTab==='bw')stBodyweight(el);
   else if(S.stTab==='prs')vPRs(el);
 }
 function stOver(el,cyc,sibs){
@@ -3391,6 +3448,56 @@ function rVChart(name,sibs){
   </svg></div>`;
 }
 function setStProg(n){S.stProgEx=n;save();rv();}
+function stBodyweight(el){
+  const log=S.bwLog||[];
+  const logBtn=`<button class="btn btns" style="width:100%;margin-top:10px;color:var(--gd);border-color:var(--gdk)" onclick="logBodyweightStandalone()">⚖ Log Today's Weight</button>`;
+  if(!log.length){
+    el.innerHTML=`<div class="card"><div class="chart-empty">No bodyweight logged yet. Entries are captured each time you start a cycle, or log one manually below.</div>${logBtn}</div>`;
+    return;
+  }
+  const latest=log[log.length-1];
+  if(log.length<2){
+    el.innerHTML=`<div class="card">
+      <div class="lbl mb4">Current Bodyweight</div>
+      <div style="font-family:var(--fn);font-size:32px;font-weight:800;color:var(--g2)">${latest.weight}${uw()}</div>
+      <div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:2px">Logged ${latest.date}</div>
+      <div class="chart-empty" style="margin-top:10px">Log at least one more entry to see a trend</div>
+      ${logBtn}
+    </div>`;
+    return;
+  }
+  const W=Math.max(240,log.length*70),H=140,pT=22,pB=30,pL=20,pR=20;
+  const cW=W-pL-pR,cH=H-pT-pB;
+  const weights=log.map(e=>parseFloat(e.weight)||0);
+  const maxW=Math.max(...weights),minW=Math.min(...weights);
+  const pad=(maxW-minW)*0.15||maxW*0.08||1;
+  const yMin=Math.max(0,minW-pad),yMax=maxW+pad;
+  const pt=(e,i)=>({x:pL+(log.length>1?(i/(log.length-1))*cW:cW/2),y:pT+cH-((yMax>yMin?((parseFloat(e.weight)||0)-yMin)/(yMax-yMin):0.5)*cH)});
+  const pts=log.map(pt);
+  const linePath=pts.map((p,i)=>(i?'L':'M')+p.x.toFixed(1)+','+p.y.toFixed(1)).join(' ');
+  const fillPath=linePath+` L${pts[pts.length-1].x.toFixed(1)},${(pT+cH)} L${pts[0].x.toFixed(1)},${(pT+cH)} Z`;
+  const dots=pts.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="var(--gd)" stroke="#0c1828" stroke-width="1.5"/>
+    <text x="${p.x.toFixed(1)}" y="${(p.y-9).toFixed(1)}" fill="var(--g2)" font-size="10" font-weight="700" text-anchor="middle" font-family="Barlow Condensed">${log[i].weight}</text>
+    <text x="${p.x.toFixed(1)}" y="${(H-pB+13).toFixed(1)}" fill="var(--t2)" font-size="9" text-anchor="middle" font-family="Barlow Condensed">${(log[i].date||'').slice(0,5)}</text>`).join('');
+  const diff=weights[weights.length-1]-weights[0];
+  const pct=weights[0]?Math.round(diff/weights[0]*100):0;
+  const trend=diff>0?`<span style="color:var(--green)">▲ +${diff.toFixed(1)}${uw()} (+${pct}%)</span>`:diff<0?`<span style="color:#e06060">▼ ${diff.toFixed(1)}${uw()} (${pct}%)</span>`:`<span style="color:var(--t2)">No change</span>`;
+  el.innerHTML=`<div class="card">
+    <div class="lbl mb4">Current Bodyweight</div>
+    <div style="font-family:var(--fn);font-size:32px;font-weight:800;color:var(--g2)">${latest.weight}${uw()}</div>
+    <div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:2px;margin-bottom:14px">Logged ${latest.date}</div>
+    <div class="lbl mb8">Trend</div>
+    <div class="scrollx"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;overflow:visible">
+      <defs><linearGradient id="bwgrd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(201,168,76,.25)"/><stop offset="100%" stop-color="rgba(201,168,76,0)"/></linearGradient></defs>
+      <line x1="${pL}" y1="${pT+cH}" x2="${W-pR}" y2="${pT+cH}" stroke="var(--b)" stroke-width="1"/>
+      <path d="${fillPath}" fill="url(#bwgrd)"/>
+      <path d="${linePath}" fill="none" stroke="var(--gd)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${dots}
+    </svg></div>
+    <div style="font-size:12px;color:var(--t2);font-family:var(--fn);margin-top:6px">First → Latest: ${trend}</div>
+    ${logBtn}
+  </div>`;
+}
 function stProgress(el){
   // Build exercise map: name → [{cycleNum, cycleName, bestKg}]
   const exMap={};
@@ -3674,7 +3781,7 @@ function vPRs(c){
               <div style="font-size:11px;color:var(--t2);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 ${prDateEdit===p.id
                   ?`<input type="date" value="${toInputDate(p.date)}" style="font-size:12px;padding:3px 6px;border-radius:4px;background:var(--bg3);border:1px solid var(--g);color:var(--t);font-family:var(--fn)" onchange="savePRDate('${p.id}',this.value)" onblur="savePRDate('${p.id}',this.value)"><button class="btn btns" style="font-size:11px;height:26px;padding:0 8px" onclick="prDateEdit=null;rv()">Cancel</button>`
-                  :`${p.date}${pi===0?' · 🏆 Best':''}<button style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--t2);padding:0;line-height:1;vertical-align:middle" onclick="startEditPRDate('${p.id}')" title="Edit date">✎</button>`
+                  :`${p.date}${p.bodyweight?` · BW ${p.bodyweight}${uw()}`:''}${pi===0?' · 🏆 Best':''}<button style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--t2);padding:0;line-height:1;vertical-align:middle" onclick="startEditPRDate('${p.id}')" title="Edit date">✎</button>`
                 }
               </div>
               ${p.notes?`<div style="font-size:12px;color:var(--t2);font-style:italic;margin-top:3px;line-height:1.4">${p.notes}</div>`:''}
@@ -3939,9 +4046,10 @@ function setUnit(newUnit){
     if(sess.ruckData&&sess.ruckData.weight)sess.ruckData.weight=cvt(sess.ruckData.weight);
   }));
   // Convert PRs
-  S.prs.forEach(p=>{if(p.kg)p.kg=Math.round(parseFloat(p.kg)*factor*10)/10;});
+  S.prs.forEach(p=>{if(p.kg)p.kg=Math.round(parseFloat(p.kg)*factor*10)/10;if(p.bodyweight)p.bodyweight=cvt(p.bodyweight);});
   // Convert bodyweight
   if(S.bw)S.bw=cvt(S.bw);
+  (S.bwLog||[]).forEach(e=>{if(e.weight)e.weight=cvt(e.weight);});
   S.unit=newUnit;save();render();notify('Switched to '+newUnit+' — all values converted');
 }
 function setDefRest(s){S.defRest=s;save();rv();}
