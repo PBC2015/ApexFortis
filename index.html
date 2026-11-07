@@ -214,6 +214,7 @@ input[type=date]{color-scheme:dark}
 /* SET CARDS */
 .setc{background:var(--bg3);border:1px solid var(--b);border-radius:7px;padding:10px;margin-bottom:8px}
 input.carried-val::placeholder{color:var(--t2);font-style:italic;opacity:.75}
+.ghost-ph::placeholder{color:var(--t2);font-style:italic;opacity:.75}
 input.carried-val{font-style:italic}
 .setc.topset{border:1.5px solid var(--g);background:rgba(74,56,16,.3);border-left:4px solid var(--g2)}
 .setc.attempt{opacity:.7;border-color:var(--b2)}
@@ -599,6 +600,108 @@ function startKeepAlive(){
   }catch(e){}
 }
 function stopKeepAlive(){try{if(_keepAlive){_keepAlive.o.stop();_keepAlive=null;}}catch(e){}}
+// ─── STOPWATCH ──────────────────────────────────────────────────────────────
+let SW={on:false,elapsed:0,startEpoch:0,iv:null};
+let _tbarHideTO=null; // pending auto-hide of the bar after a rest timer completes
+function swFmt(ms){
+  const totalSec=Math.floor(ms/1000);
+  const h=Math.floor(totalSec/3600),m=Math.floor((totalSec%3600)/60),s=totalSec%60;
+  const mm=h>0?String(m).padStart(2,'0'):String(m);
+  const ss=String(s).padStart(2,'0');
+  return(h>0?h+':':'')+mm+':'+ss;
+}
+function restoreTimerBar(){
+  // render() rebuilds the whole page, including a fresh hidden #tbar. Re-apply
+  // whichever mode is live so the bar survives tab switches.
+  const tb=document.getElementById('tbar');if(!tb)return;
+  const tl=document.getElementById('tl');
+  const pw=document.getElementById('tprogwrap');
+  const ra=document.getElementById('tbar-acts-rest');
+  const sa=document.getElementById('tbar-acts-sw');
+  if(SW.on||SW.elapsed>0){
+    tb.classList.add('vis');
+    if(tl)tl.textContent='Stopwatch';
+    if(pw)pw.style.display='none';
+    if(ra)ra.style.display='none';
+    if(sa)sa.style.display='';
+    const btn=document.getElementById('sw-toggle-btn');
+    if(btn)btn.textContent=SW.on?'Stop':'Start';
+    swRenderDisplay();
+  }else if(TM.on&&TM.end>Date.now()){
+    tb.classList.add('vis');
+    if(tl)tl.textContent=TM.lbl||'Rest Timer';
+    tickTM();
+  }
+}
+function swShow(){
+  // Stopwatch and rest timer share the bottom bar — only one can be live at a time
+  if(TM.on||TM.end>Date.now())stopT();
+  if(_tbarHideTO){clearTimeout(_tbarHideTO);_tbarHideTO=null;}
+  const tb=document.getElementById('tbar');
+  const tl=document.getElementById('tl');
+  const pw=document.getElementById('tprogwrap');
+  if(tb)tb.classList.add('vis');
+  if(tl)tl.textContent='Stopwatch';
+  if(pw)pw.style.display='none';
+  const restActs=document.getElementById('tbar-acts-rest');
+  const swActs=document.getElementById('tbar-acts-sw');
+  if(restActs)restActs.style.display='none';
+  if(swActs)swActs.style.display='';
+  swRenderDisplay();
+}
+function swTick(){
+  if(!SW.on)return;
+  swRenderDisplay();
+}
+function swRenderDisplay(){
+  const td=document.getElementById('td');if(!td)return;
+  const ms=SW.on?(Date.now()-SW.startEpoch):SW.elapsed;
+  td.textContent=swFmt(ms);
+  td.className='tbar-num';
+}
+function swToggle(){
+  const btn=document.getElementById('sw-toggle-btn');
+  if(SW.on){
+    // Pause
+    SW.elapsed=Date.now()-SW.startEpoch;
+    SW.on=false;
+    if(SW.iv){clearInterval(SW.iv);SW.iv=null;}
+    releaseWakeLock();stopKeepAlive();
+    if(btn)btn.textContent='Start';
+    swRenderDisplay();
+  }else{
+    // Start / resume
+    SW.startEpoch=Date.now()-SW.elapsed;
+    SW.on=true;
+    acquireWakeLock();startKeepAlive();
+    SW.iv=setInterval(swTick,250);
+    if(btn)btn.textContent='Stop';
+    swRenderDisplay();
+  }
+}
+function swReset(){
+  SW.on=false;SW.elapsed=0;SW.startEpoch=0;
+  if(SW.iv){clearInterval(SW.iv);SW.iv=null;}
+  releaseWakeLock();stopKeepAlive();
+  const btn=document.getElementById('sw-toggle-btn');
+  if(btn)btn.textContent='Start';
+  swRenderDisplay();
+}
+function swClose(){
+  SW.on=false;SW.elapsed=0;SW.startEpoch=0;
+  if(SW.iv){clearInterval(SW.iv);SW.iv=null;}
+  releaseWakeLock();stopKeepAlive();
+  const tb=document.getElementById('tbar');
+  if(tb)tb.classList.remove('vis');
+  const pw=document.getElementById('tprogwrap');
+  if(pw)pw.style.display='';
+  const restActs=document.getElementById('tbar-acts-rest');
+  const swActs=document.getElementById('tbar-acts-sw');
+  if(restActs)restActs.style.display='';
+  if(swActs)swActs.style.display='none';
+  const btn=document.getElementById('sw-toggle-btn');
+  if(btn)btn.textContent='Start';
+}
 function scheduleTimerAlerts(secs){
   // Pre-schedule end-of-timer alarm — fires 1s ahead of nominal 0 to compensate for
   // perceived device audio-pipeline lag. Track nodes for cancellation.
@@ -692,6 +795,15 @@ function startTimer(secs,lbl){
   // Cancel pre-scheduled oscillators from any previous timer BEFORE overwriting TM
   (TM._oscillators||[]).forEach(o=>{try{o.stop(0);}catch(e){}});
   TM={on:true,end:Date.now()+secs*1000,dur:secs,lbl,iv:null,_t20:null,_t10:null,_tvib:null,_tvend:null,_speechPoke:null,_oscillators:[]};
+  if(_tbarHideTO){clearTimeout(_tbarHideTO);_tbarHideTO=null;}
+  // Stopwatch and rest timer share the bottom bar — taking over means shutting the
+  // stopwatch down and restoring the rest-timer controls it had swapped out.
+  if(SW.on||SW.elapsed>0){swClose();}
+  else{
+    const pw0=document.getElementById('tprogwrap');if(pw0)pw0.style.display='';
+    const ra0=document.getElementById('tbar-acts-rest');if(ra0)ra0.style.display='';
+    const sa0=document.getElementById('tbar-acts-sw');if(sa0)sa0.style.display='none';
+  }
   const tb=document.getElementById('tbar');
   if(tb){tb.classList.add('vis');const tl=document.getElementById('tl');if(tl)tl.textContent=lbl||'Rest Timer';}
   scheduleTimerAlerts(secs);
@@ -713,7 +825,7 @@ function tickTM(){
     releaseWakeLock();stopKeepAlive();
     td.textContent='GO!';td.className='tbar-num done';
     if(tf)tf.className='tbar-fill done';
-    setTimeout(()=>{const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');},4500);
+    _tbarHideTO=setTimeout(()=>{const tb=document.getElementById('tbar');if(tb)tb.classList.remove('vis');_tbarHideTO=null;},4500);
   }
 }
 function extT(s){
@@ -1323,9 +1435,11 @@ function render(){
         ${S.tab==='train'&&cyc
           ?`${(()=>{const ps=getPrevSession(S.cid,S.wk,S.dy);return ps?`<button class="tba btns ${showCompare?'on':''}" onclick="toggleCompare()" title="Compare with previous cycle" style="font-size:13px;font-weight:800;letter-spacing:.04em">↺C${ps.cycNum||1}</button>`:''})()}
             <button class="tba btns" onclick="showTPanel()" title="Rest Timer" style="font-size:18px">⏱</button>
+            <button class="tba btns" onclick="swShow()" title="Stopwatch" style="font-size:17px">⏲</button>
             <button class="tba btns" onclick="showWeekOverview()" title="Week Overview" style="font-size:17px">⊞</button>`
           :S.tab==='train'
           ?`<button class="tba btns" onclick="showTPanel()" title="Rest Timer" style="font-size:18px">⏱</button>
+             <button class="tba btns" onclick="swShow()" title="Stopwatch" style="font-size:17px">⏲</button>
              <button class="tba btns" onclick="showWeekOverview()" title="Week Overview" style="font-size:17px">⊞</button>`
           :S.name?`<div style="font-family:var(--fn);font-size:13px;font-weight:700;color:var(--t2)">${S.name.split(' ')[0]}</div>`:''}
         ${cyc?`<div style="text-align:right"><div style="font-size:10px;color:var(--t2);letter-spacing:.07em;text-transform:uppercase;font-family:var(--fn)">${S.trainDays||3}T${S.hasRuck!==false?'+R':''}</div><div style="font-size:13px;font-weight:700;color:var(--g);font-family:var(--fn)">W${S.wk+1}D${S.dy+1}</div></div>`:''}
@@ -1335,13 +1449,18 @@ function render(){
     <div class="tbar" id="tbar">
       <div class="tbar-info">
         <div class="tbar-lbl" id="tl">Rest Timer</div>
-        <div class="tbar-prog"><div class="tbar-fill" id="tf"></div></div>
+        <div class="tbar-prog" id="tprogwrap"><div class="tbar-fill" id="tf"></div></div>
       </div>
       <div class="tbar-num" id="td">0:00</div>
-      <div class="tbar-acts">
+      <div class="tbar-acts" id="tbar-acts-rest">
         <button class="tba" onclick="extT(30)">+30s</button>
         <button class="tba" onclick="extT(60)">+1m</button>
         <button class="tba xbtn" onclick="stopT()" style="color:#e05050;font-size:20px;font-weight:700;line-height:1" title="Stop timer">✕</button>
+      </div>
+      <div class="tbar-acts" id="tbar-acts-sw" style="display:none">
+        <button class="tba" id="sw-toggle-btn" onclick="swToggle()">Start</button>
+        <button class="tba" onclick="swReset()">Reset</button>
+        <button class="tba xbtn" onclick="swClose()" style="color:#e05050;font-size:20px;font-weight:700;line-height:1" title="Close stopwatch">✕</button>
       </div>
     </div>
     <div class="bnav">
@@ -1361,6 +1480,7 @@ function render(){
     },{passive:true});
   }
   rv();
+  restoreTimerBar();
 }
 let _undo=null,_undoTimer=null;
 function saveUndo(desc){
@@ -1939,7 +2059,24 @@ function _bldNewPlanDo(){
 function updSS(cid,w,d,exId,si,field,val){
   const ex=gEx(cid,w,d,exId);if(!ex||!ex.supersetWith)return;
   if(!ex.supersetWith.sets[si])ex.supersetWith.sets[si]=mkSet();
-  ex.supersetWith.sets[si][field]=val;save();
+  const s=ex.supersetWith.sets[si];
+  const inp=document.getElementById('sfb-'+exId+'-'+si+'-'+field);
+  if(val===''){
+    // Cleared — bring the ghost back if one was carried
+    s[field]='';
+    if(s.carriedVals&&s.carriedVals[field]!=null&&s.carriedVals[field]!==''){
+      if(!s.carried)s.carried={};
+      s.carried[field]=true;
+      if(inp)inp.classList.add('carried-val');
+    }
+  }else{
+    s[field]=val;
+    if(s.carried&&s.carried[field]){
+      s.carried[field]=false;
+      if(inp)inp.classList.remove('carried-val');
+    }
+  }
+  save();
 }
 function openSupersetPicker(cid,w,d,exId){
   function rows(q){
@@ -2048,18 +2185,38 @@ function applyManualAdditions(sessions,additions){
   });
 }
 let _nextCycPending=null;
+function escA(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function ghostSetFrom(ps,prevEquip,restDefault){
+  // A cleared set whose previous values live on as grey ghosts (same rules as every other copy)
+  const carryFields=['weight','reps','sets','rpe','rest','equipment','notes'];
+  const carried={},carriedVals={};
+  carryFields.forEach(f=>{
+    const val=f==='equipment'?(ps[f]||prevEquip):(f==='rest'?(ps[f]||restDefault||''):ps[f]);
+    if(val!=null&&val!==''){carried[f]=true;carriedVals[f]=String(val);}
+  });
+  return{...mkSet(),weight:'',reps:'',sets:'',rpe:'',rest:'',equipment:'',notes:'',failed:false,
+    carried:Object.keys(carried).length?carried:null,
+    carriedVals:Object.keys(carriedVals).length?carriedVals:null};
+}
 function copySessionData(ss,dest){
   // Overwrite dest (an existing session) with ss's structure — exercises, order,
   // supersets, TRM config. All logged data clears into grey carry-forward ghosts
   // sourced from ss, exactly like the standard cycle-to-cycle carry system.
   dest.type=ss.type;
   dest.isHomeGym=ss.isHomeGym||false;
+  // Session notes carry as a grey ghost in the notes box, not as real text
+  dest.carriedNotes=(ss.notes||'').trim()?ss.notes:null;
   if(ss.type==='ruck'){
     dest.exercises=[];
+    const rd=ss.ruckData||{};
+    const rc={};
+    ['weight','distance','duration','notes','equipment'].forEach(f=>{if(rd[f]!=null&&String(rd[f]).trim()!=='')rc[f]=String(rd[f]);});
+    dest.ruckCarried=Object.keys(rc).length?rc:null;
     dest.ruckData={weight:'',distance:'',duration:'',notes:'',equipment:''};
     dest.done=false;dest.missed=false;dest.notes='';
     return;
   }
+  dest.ruckCarried=null;
   const srcExs=(ss.exercises||[]).filter(e=>!e.isWildcard);
   const exercises=srcExs.map(ex=>{
     const prevEquip=(ex.sets||[]).map(s=>s.equipment||'').find(e=>e)||'';
@@ -2094,10 +2251,12 @@ function copySessionData(ss,dest){
       berserkerLabel:ex.berserkerLabel||null,
       sets:newSets};
     if(ex.supersetWith){
+      const srcB=ex.supersetWith.sets||[];
+      const prevEquipB=srcB.map(s=>(s&&s.equipment)||'').find(e=>e)||'';
       nx.supersetWith={id:uid(),libId:ex.supersetWith.libId,
         name:ex.supersetWith.name,metric:ex.supersetWith.metric||'reps',
         weightMode:ex.supersetWith.weightMode||'kg',
-        sets:newSets.map(()=>mkSet())};
+        sets:newSets.map((_,i)=>ghostSetFrom(srcB[i]||{},prevEquipB,''))};
     }
     return nx;
   });
@@ -2353,10 +2512,12 @@ function copyCycleSessions(prev){
         trmCarriedVals:Object.keys(trmCarriedVals).length?trmCarriedVals:null,
         sets:newSets};
       if(ex.supersetWith){
+        const srcB=((src&&src.supersetWith)||ex.supersetWith).sets||[];
+        const prevEquipB=srcB.map(s=>(s&&s.equipment)||'').find(e=>e)||'';
         nx.supersetWith={id:uid(),libId:ex.supersetWith.libId,
           name:ex.supersetWith.name,metric:ex.supersetWith.metric||'reps',
           weightMode:ex.supersetWith.weightMode||'kg',
-          sets:newSets.map(()=>mkSet())};
+          sets:newSets.map((_,i)=>ghostSetFrom(srcB[i]||{},prevEquipB,''))};
       }
       return nx;
     });
@@ -2745,7 +2906,7 @@ function vTrain(c){
   if(sess.missed)h+=`<div class="warn-banner" style="border-color:#c04040;color:#e06060;margin-bottom:12px"><b>✕ Session Missed</b> — marked as not completed. Future cycles will show this session as a reference to beat. Tap "Miss?" to undo.</div>`;
   h+=`<div class="card mb12">
     <div class="lbl">Session Notes</div>
-    <textarea placeholder="Readiness, modifications, how it went…" oninput="updSessNotes('${cyc.id}',${sess.week},${sess.day},this.value)">${sess.notes||''}</textarea>
+    <textarea class="${sess.carriedNotes?'ghost-ph':''}" placeholder="${sess.carriedNotes?String(sess.carriedNotes).replace(/"/g,'&quot;'):'Readiness, modifications, how it went…'}" oninput="updSessNotes('${cyc.id}',${sess.week},${sess.day},this.value)">${sess.notes||''}</textarea>
   </div>`;
   h+=sess.type==='ruck'?rRuck(sess,cyc.id):rSess(sess,cyc.id);
   // Add exercise button
@@ -3077,7 +3238,8 @@ function rEx(ex,sess,cid,locked){
   h+=`<div class="lbl mb6">Default Rest</div>
     <input class="ins mb12" style="max-width:140px" value="${ex.restDefault||''}" placeholder="${fmtS(S.defRest||120)} (global)" oninput="updRestDefault('${cid}',${sess.week},${sess.day},'${ex.id}',this.value)">
     <div class="lbl mb6">Equipment</div>
-    <input class="ins mb12" value="${(ex.sets[0]||{}).equipment||''}" placeholder="Barbell, SSB, Chains…" oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',0,'equipment',this.value)">
+    ${(()=>{const s0=ex.sets[0]||{};const eqG=!!(s0.carried&&s0.carried.equipment&&s0.carriedVals&&s0.carriedVals.equipment);
+      return`<input id="sf-${ex.id}-0-equipment" class="ins mb12 ${eqG?'carried-val':''}" value="${s0.equipment||''}" placeholder="${eqG?String(s0.carriedVals.equipment).replace(/"/g,'&quot;'):'Barbell, SSB, Chains…'}" oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',0,'equipment',this.value)">`;})()}
     <div class="lbl mb6">Sets</div>`;
   ex.sets.forEach((s,si)=>{
     const isReps=exMetric==='reps';
@@ -3088,7 +3250,7 @@ function rEx(ex,sess,cid,locked){
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)"
           >
         </div>
-        <div class="sf"><label>${repLbl}</label><input type="number" inputmode="${repMode}" id="sf-${ex.id}-${si}-reps" value="${s.reps}" placeholder="${s.carried&&s.carried['reps']&&s.carriedVals?s.carriedVals.reps:'0'}" class="${s.carried&&s.carried['reps']?'carried-val':''}" style="${failStyle(s)}"
+        <div class="sf"><label>${repLbl}</label><input type="${isReps?'text':'number'}" inputmode="${repMode}" autocomplete="off" id="sf-${ex.id}-${si}-reps" value="${s.reps}" placeholder="${s.carried&&s.carried['reps']&&s.carriedVals?s.carriedVals.reps:'0'}" class="${s.carried&&s.carried['reps']?'carried-val':''}" style="${failStyle(s)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value)"></div>
         <div class="sf"><label>Sets</label><input type="number" inputmode="numeric" id="sf-${ex.id}-${si}-sets" value="${s.sets||''}" placeholder="${s.carried&&s.carried['sets']&&s.carriedVals?s.carriedVals.sets:'1'}" class="${s.carried&&s.carried['sets']?'carried-val':''}" title="How many sets performed" style="${failStyle(s)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'sets',this.value)"></div>
@@ -3158,6 +3320,21 @@ function rSSEx(ex,sess,cid,locked){
     <button class="tgt-app ${tgt.isDeload?'dl':''}" onclick="applyTgt('${cid}',${sess.week},${sess.day},'${ex.id}')">Apply</button>
   </div>`;
   }
+  // Ghost helpers: carried values show as grey placeholders, same as every other card
+  const gv=(s,f)=>(s&&s.carried&&s.carried[f]&&s.carriedVals&&s.carriedVals[f]!=null)?s.carriedVals[f]:null;
+  const gp=(s,f,def)=>{const g=gv(s,f);return g!=null?escA(g):def;};
+  const gk=(s,f)=>gv(s,f)!=null?'carried-val':'';
+  const sa0=ex.sets[0]||{},sb0=ss.sets[0]||{};
+  h+=`<div style="display:flex;gap:6px;margin-bottom:10px">
+    <div class="sf" style="flex:1"><label>Equipment A</label>
+      <input id="sf-${ex.id}-0-equipment" class="${gk(sa0,'equipment')}" value="${escA(sa0.equipment||'')}" placeholder="${gp(sa0,'equipment','Barbell, SSB…')}"
+        oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',0,'equipment',this.value)">
+    </div>
+    <div class="sf" style="flex:1"><label>Equipment B</label>
+      <input id="sfb-${ex.id}-0-equipment" class="${gk(sb0,'equipment')}" value="${escA(sb0.equipment||'')}" placeholder="${gp(sb0,'equipment','Bands, DB…')}"
+        oninput="updSS('${cid}',${sess.week},${sess.day},'${ex.id}',0,'equipment',this.value)">
+    </div>
+  </div>`;
   // Column headers
   h+=`<div class="ss-grid">
     <div class="ss-col-hdr ss-a" style="border-color:var(--g2)">A · ${ex.name}</div>
@@ -3171,15 +3348,15 @@ function rSSEx(ex,sess,cid,locked){
         <div style="display:flex;gap:4px;align-items:center">
           <div class="snum" style="color:var(--g2)">${si+1}</div>
           <div class="sf" style="flex:1"><label>${wLabel(ex)}</label>
-            <input type="number" inputmode="decimal" value="${sa.weight}" placeholder="0" style="${failStyle(sa)}"
+            <input id="sf-${ex.id}-${si}-weight" class="${gk(sa,'weight')}" type="number" inputmode="decimal" value="${sa.weight}" placeholder="${gp(sa,'weight','0')}" style="${failStyle(sa)}"
               oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)">
           </div>
           <div class="sf" style="flex:1"><label>${metricLbl(aMetric)}</label>
-            <input type="number" inputmode="numeric" value="${sa.reps}" placeholder="0" style="${failStyle(sa)}"
+            <input id="sf-${ex.id}-${si}-reps" class="${gk(sa,'reps')}" type="${aMetric==='reps'?'text':'number'}" inputmode="numeric" autocomplete="off" value="${sa.reps}" placeholder="${gp(sa,'reps','0')}" style="${failStyle(sa)}"
               oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value)">
           </div>
           <div class="sf" style="flex:1"><label>Sets</label>
-            <input type="number" inputmode="numeric" value="${sa.sets||''}" placeholder="1" style="${failStyle(sa)}"
+            <input id="sf-${ex.id}-${si}-sets" class="${gk(sa,'sets')}" type="number" inputmode="numeric" value="${sa.sets||''}" placeholder="${gp(sa,'sets','1')}" style="${failStyle(sa)}"
               oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'sets',this.value)">
           </div>
         </div>
@@ -3188,11 +3365,11 @@ function rSSEx(ex,sess,cid,locked){
         <div style="display:flex;gap:4px;align-items:center">
           <div class="snum" style="color:var(--gd)">${si+1}</div>
           <div class="sf" style="flex:1"><label>${wLabel(ss)}</label>
-            <input type="number" inputmode="decimal" value="${sb_.weight}" placeholder="0"
+            <input id="sfb-${ex.id}-${si}-weight" class="${gk(sb_,'weight')}" type="number" inputmode="decimal" value="${sb_.weight}" placeholder="${gp(sb_,'weight','0')}"
               oninput="updSS('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'weight',this.value)">
           </div>
           <div class="sf" style="flex:1"><label>${metricLbl(bMetric)}</label>
-            <input type="number" inputmode="numeric" value="${sb_.reps}" placeholder="0"
+            <input id="sfb-${ex.id}-${si}-reps" class="${gk(sb_,'reps')}" type="${bMetric==='reps'?'text':'number'}" inputmode="numeric" autocomplete="off" value="${sb_.reps}" placeholder="${gp(sb_,'reps','0')}"
               oninput="updSS('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'reps',this.value)">
           </div>
           <button class="btn btnd btnxs" style="color:#e05050;font-size:14px" onclick="rmSet('${cid}',${sess.week},${sess.day},'${ex.id}',${si})">✕</button>
@@ -3201,8 +3378,12 @@ function rSSEx(ex,sess,cid,locked){
     </div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <div class="sf" style="flex:1"><label>Rest after pair ${si+1}</label>
-        <input type="number" inputmode="numeric" value="${sa.rest||''}" placeholder="${S.defRest||60}"
+        <input id="sf-${ex.id}-${si}-rest" class="${gk(sa,'rest')}" type="number" inputmode="numeric" value="${sa.rest||''}" placeholder="${gp(sa,'rest',S.defRest||60)}"
           oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'rest',this.value)">
+      </div>
+      <div class="sf" style="flex:2"><label>Notes</label>
+        <input id="sf-${ex.id}-${si}-notes" class="${gk(sa,'notes')}" value="${escA(sa.notes||'')}" placeholder="${gp(sa,'notes','…')}"
+          oninput="upd('${cid}',${sess.week},${sess.day},'${ex.id}',${si},'notes',this.value)">
       </div>
     </div>`;
   });
@@ -3241,6 +3422,9 @@ function setRuckUnit(u){
 }
 function rRuck(sess,cid){
   const r=sess.ruckData||{};
+  const g=sess.ruckCarried||{};
+  const ph=(f,def)=>String(g[f]??def).replace(/"/g,'&quot;');
+  const gc=f=>g[f]?'ghost-ph':'';
   return`<div class="exb me">
     <div class="exbh">
       <div class="fbet">
@@ -3250,7 +3434,7 @@ function rRuck(sess,cid){
     </div>
     <div class="exby">
       <div class="rg">
-        <div><div class="lbl">Weight (${uw()})</div><input type="number" inputmode="decimal" value="${r.weight||''}" placeholder="${uw()}" oninput="updR('${cid}',${sess.week},'weight',this.value)"></div>
+        <div><div class="lbl">Weight (${uw()})</div><input type="number" inputmode="decimal" class="${gc('weight')}" value="${r.weight||''}" placeholder="${ph('weight',uw())}" oninput="updR('${cid}',${sess.week},${sess.day},'weight',this.value)"></div>
         <div><div class="lbl fbet" style="align-items:center">
             <span>Distance (${ruDist()})</span>
             <span style="display:flex;gap:2px">
@@ -3258,11 +3442,11 @@ function rRuck(sess,cid){
               <button class="sw-btn ${S.ruckUnit==='km'?'on':''}" style="height:22px;padding:0 6px;font-size:10px" onclick="setRuckUnit('km')">km</button>
             </span>
           </div>
-          <input type="number" inputmode="decimal" value="${r.distance||''}" placeholder="${ruDist()}" oninput="updR('${cid}',${sess.week},'distance',this.value)"></div>
-        <div><div class="lbl">Duration</div><input value="${r.duration||''}" placeholder="1h 30m" oninput="updR('${cid}',${sess.week},'duration',this.value)"></div>
-        <div><div class="lbl">Equipment</div><input value="${r.equipment||''}" placeholder="Pack, plate" oninput="updR('${cid}',${sess.week},'equipment',this.value)"></div>
+          <input type="number" inputmode="decimal" class="${gc('distance')}" value="${r.distance||''}" placeholder="${ph('distance',ruDist())}" oninput="updR('${cid}',${sess.week},${sess.day},'distance',this.value)"></div>
+        <div><div class="lbl">Duration</div><input class="${gc('duration')}" value="${r.duration||''}" placeholder="${ph('duration','1h 30m')}" oninput="updR('${cid}',${sess.week},${sess.day},'duration',this.value)"></div>
+        <div><div class="lbl">Equipment</div><input class="${gc('equipment')}" value="${r.equipment||''}" placeholder="${ph('equipment','Pack, plate')}" oninput="updR('${cid}',${sess.week},${sess.day},'equipment',this.value)"></div>
       </div>
-      <div><div class="lbl">Notes</div><textarea oninput="updR('${cid}',${sess.week},'notes',this.value)">${r.notes||''}</textarea></div>
+      <div><div class="lbl">Notes</div><textarea class="${gc('notes')}" placeholder="${ph('notes','')}" oninput="updR('${cid}',${sess.week},${sess.day},'notes',this.value)">${r.notes||''}</textarea></div>
     </div>
   </div>`;
 }
@@ -3295,9 +3479,10 @@ function rmSet(cid,w,d,eid,si){
   if(ex.supersetWith){ex.supersetWith.sets.splice(si,1);if(!ex.supersetWith.sets.length)ex.supersetWith.sets=[mkSet()];}
   save();rv();
 }
-function updR(cid,w,f,v){
+function updR(cid,w,d,f,v){
   const c=S.cycles.find(x=>x.id===cid);if(!c)return;
-  const s=c.sessions.find(s=>s.week===w&&s.type==='ruck');if(!s)return;
+  // Match on day too: a week can hold several rucks (second ruck, wildcard ruck day)
+  const s=c.sessions.find(s=>s.week===w&&s.day===d&&s.type==='ruck');if(!s)return;
   if(!s.ruckData)s.ruckData={};s.ruckData[f]=v;save();
 }
 function updSessNotes(cid,w,d,v){
@@ -4188,7 +4373,7 @@ function setupPWA(){
   if('serviceWorker' in navigator){
     try{
       const swCode=`
-const CV='af-cache-v14';
+const CV='af-cache-v16';
 self.addEventListener('install',e=>{self.skipWaiting();});
 self.addEventListener('activate',e=>{e.waitUntil(Promise.all([self.clients.claim(),caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k))))]));});
 self.addEventListener('fetch',e=>{
@@ -4212,10 +4397,42 @@ self.addEventListener('fetch',e=>{
   }
 }
 
+// ─── BACK BUTTON GUARD ───────────────────────────────────────────────────────
+// Android's back button closes an installed PWA once it reaches the first history
+// entry. Keep a "guard" entry above a "base" entry: the first back press just pops
+// the guard (the app stays open) and prompts; a second press inside the window
+// reaches the first entry and exits normally. Accidental presses no longer close it.
+let _bgTimer=null;
+function bgArm(){
+  try{
+    if(history.state&&history.state.af==='guard')return; // already armed (e.g. after a reload)
+    if(!history.state||history.state.af!=='base')history.replaceState({af:'base'},'');
+    history.pushState({af:'guard'},'');
+  }catch(e){}
+}
+function bgInit(){
+  // Chrome treats entries added before any user gesture as skippable on back,
+  // so arm on the first tap rather than at load.
+  const first=()=>{
+    document.removeEventListener('click',first,true);
+    document.removeEventListener('touchend',first,true);
+    bgArm();
+  };
+  document.addEventListener('click',first,true);
+  document.addEventListener('touchend',first,true);
+  window.addEventListener('popstate',e=>{
+    if(e.state&&e.state.af==='base'){
+      notify('Press back again to exit');
+      if(_bgTimer)clearTimeout(_bgTimer);
+      _bgTimer=setTimeout(()=>{_bgTimer=null;bgArm();},2600); // re-arm once the window lapses
+    }
+  });
+}
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 setupPWA();
 render();
 prewarmAudio();
+bgInit();
 if(!S.onboarded)setTimeout(showOnboarding,600);
 // ─── SPLASH SCREEN ────────────────────────────────────────────────────────────
 (function(){
